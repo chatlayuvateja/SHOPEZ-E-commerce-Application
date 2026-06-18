@@ -1,22 +1,4 @@
-╔══════════════════════════════════════════╗
-║                                                                             ║
-║     ███████╗██╗  ██╗ ██████╗ ██████╗ ███████╗███████╗                       ║
-║     ██╔════╝██║  ██║██╔═══██╗██╔══██╗██╔════╝╚══███╔╝                       ║
-║     ███████╗███████║██║   ██║██████╔╝█████╗    ███╔╝                        ║
-║     ╚════██║██╔══██║██║   ██║██╔═══╝ ██╔══╝   ███╔╝                         ║
-║     ███████║██║  ██║╚██████╔╝██║     ███████╗███████╗                       ║
-║     ╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚══════╝╚══════╝                       ║
-║                                                                             ║
-║     ███████╗███████╗                                                         ║
-║     ╚══███╔╝╚══███╔╝                                                         ║
-║       ███╔╝   ███╔╝                                                          ║
-║      ███╔╝   ███╔╝                                                           ║
-║     ███████╗███████╗                                                         ║
-║     ╚══════╝╚══════╝                                                         ║
-║                                                                             ║
-║     Production-Grade MERN E-Commerce Platform                                ║
-║                                                                             ║
-╚══════════════════════════════════════════╝
+
 
 **ShopEZ** is a full-featured, production-grade e-commerce platform built with the MERN stack (MongoDB, Express.js, React.js, Node.js). It provides a complete online shopping experience — from browsing a comprehensive product catalog with advanced filtering and search to placing orders with a secure, multi-step checkout flow. The platform supports three distinct user roles — Customers, Sellers, and Administrators — each with tailored dashboards and capabilities.
 
@@ -303,6 +285,4 @@ cd backend && npm run seed:destroy
 
 ---
 
-## License
 
-This project is built for educational and portfolio purposes.
