@@ -1,32 +1,49 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { FiHome, FiSearch } from 'react-icons/fi';
 
 const NotFoundPage = () => {
   return (
     <div style={styles.page}>
-      <div style={styles.container}>
+      <motion.div
+        style={styles.container}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
         <div style={styles.illustration}>
-          <div style={styles.shape404}>
+          <motion.div
+            style={styles.shape404}
+            animate={{ rotate: [0, 5, -5, 0] }}
+            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+          >
             <span style={styles.shapeText}>404</span>
-          </div>
-          <div style={styles.shapeCircle1}></div>
-          <div style={styles.shapeCircle2}></div>
-          <div style={styles.shapeLine}></div>
+          </motion.div>
+          <motion.div
+            style={styles.shapeCircle1}
+            animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
+            transition={{ duration: 3, repeat: Infinity }}
+          />
+          <motion.div
+            style={styles.shapeCircle2}
+            animate={{ scale: [1, 1.1, 1], opacity: [0.1, 0.2, 0.1] }}
+            transition={{ duration: 4, repeat: Infinity }}
+          />
         </div>
         <h1 style={styles.title}>Page Not Found</h1>
         <p style={styles.message}>
           Oops! The page you're looking for doesn't exist or has been moved.
         </p>
         <div style={styles.actions}>
-          <Link to="/" className="btn-primary" style={styles.btn}>
+          <Link to="/" style={styles.btnPrimary}>
             <FiHome size={18} /> Back to Home
           </Link>
-          <Link to="/products" className="btn-ghost" style={styles.btn}>
+          <Link to="/products" style={styles.btnGhost}>
             <FiSearch size={18} /> Browse Products
           </Link>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 };
@@ -36,7 +53,7 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 'calc(100vh - var(--navbar-height) - 300px)',
+    minHeight: 'calc(100vh - var(--navbar-height))',
     padding: 'var(--space-8)',
   },
   container: {
@@ -53,18 +70,24 @@ const styles = {
     width: '200px',
     height: '200px',
     borderRadius: 'var(--radius-full)',
-    backgroundColor: 'var(--color-border-light)',
+    background: 'var(--glass-bg)',
+    backdropFilter: 'blur(20px)',
+    border: '1px solid var(--glass-border)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1,
     position: 'relative',
+    boxShadow: 'var(--glass-shadow)',
   },
   shapeText: {
     fontFamily: 'var(--font-display)',
-    fontSize: 'var(--text-4xl)',
+    fontSize: 'var(--text-5xl)',
     fontWeight: 700,
-    color: 'var(--color-primary)',
+    background: 'linear-gradient(135deg, var(--color-primary), #FFB088)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+    backgroundClip: 'text',
   },
   shapeCircle1: {
     position: 'absolute',
@@ -73,8 +96,8 @@ const styles = {
     width: '60px',
     height: '60px',
     borderRadius: 'var(--radius-full)',
-    backgroundColor: 'var(--color-primary-light)',
-    opacity: 0.3,
+    background: 'linear-gradient(135deg, var(--color-primary), var(--color-primary-dark))',
+    opacity: 0.2,
   },
   shapeCircle2: {
     position: 'absolute',
@@ -83,24 +106,13 @@ const styles = {
     width: '80px',
     height: '80px',
     borderRadius: 'var(--radius-full)',
-    backgroundColor: 'var(--color-primary)',
-    opacity: 0.1,
-  },
-  shapeLine: {
-    position: 'absolute',
-    bottom: '20px',
-    right: '-20px',
-    width: '40px',
-    height: '4px',
-    borderRadius: 'var(--radius-full)',
-    backgroundColor: 'var(--color-primary-light)',
-    opacity: 0.4,
-    transform: 'rotate(-30deg)',
+    background: 'linear-gradient(135deg, var(--color-accent-blue), transparent)',
+    opacity: 0.15,
   },
   title: {
     fontFamily: 'var(--font-display)',
-    fontSize: 'var(--text-2xl)',
-    fontWeight: 600,
+    fontSize: 'var(--text-3xl)',
+    fontWeight: 700,
     color: 'var(--color-text-primary)',
     marginBottom: 'var(--space-3)',
   },
@@ -116,12 +128,36 @@ const styles = {
     gap: 'var(--space-4)',
     flexWrap: 'wrap',
   },
-  btn: {
+  btnPrimary: {
     display: 'inline-flex',
     alignItems: 'center',
     gap: 'var(--space-2)',
-    padding: 'var(--space-3) var(--space-6)',
+    padding: 'var(--space-3) var(--space-8)',
+    background: 'linear-gradient(135deg, var(--color-primary), var(--color-primary-dark))',
+    color: '#fff',
+    fontWeight: 600,
+    borderRadius: 'var(--radius-full)',
+    textDecoration: 'none',
     fontSize: 'var(--text-sm)',
+    boxShadow: '0 4px 15px rgba(255, 107, 53, 0.3)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.03em',
+  },
+  btnGhost: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 'var(--space-2)',
+    padding: 'var(--space-3) var(--space-8)',
+    background: 'var(--glass-bg)',
+    backdropFilter: 'blur(10px)',
+    border: '1px solid var(--glass-border)',
+    color: 'var(--color-text-primary)',
+    fontWeight: 600,
+    borderRadius: 'var(--radius-full)',
+    textDecoration: 'none',
+    fontSize: 'var(--text-sm)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.03em',
   },
 };
 

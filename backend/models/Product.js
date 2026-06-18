@@ -25,7 +25,7 @@ const productSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Product category is required'],
     enum: {
-      values: ['Electronics', 'Clothing', 'Home & Kitchen', 'Books', 'Sports', 'Beauty', 'Toys', 'Automotive', 'Other'],
+      values: ['Electronics', 'Clothing', 'Home & Kitchen', 'Books', 'Sports', 'Beauty', 'Toys', 'Automotive', 'Health', 'Groceries', 'Jewelry', 'Music', 'Other'],
       message: '{VALUE} is not a valid category',
     },
   },
@@ -107,7 +107,7 @@ productSchema.pre('save', function () {
 
 productSchema.index({ seller: 1 });
 productSchema.index({ category: 1 });
-productSchema.index({ slug: 1 }, { unique: true });
+
 productSchema.index({ ratings: -1 });
 
 module.exports = mongoose.model('Product', productSchema);

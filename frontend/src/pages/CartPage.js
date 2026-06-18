@@ -59,7 +59,7 @@ const CartPage = () => {
             const product = item.product || {};
             const itemPrice = item.priceAtAdd || product.finalPrice || product.price || 0;
             const itemTotal = itemPrice * (item.quantity || 1);
-            const imageUrl = product.images && product.images.length > 0 ? product.images[0].url : 'https://via.placeholder.com/120';
+            const imageUrl = product.images && product.images.length > 0 ? product.images[0].url : 'https://picsum.photos/seed/default/120';
 
             return (
               <div key={item._id || product._id} style={styles.cartItem}>

@@ -127,7 +127,7 @@ export const CartProvider = ({ children }) => {
       }
 
       dispatch({ type: 'OPTIMISTIC_UPDATE', payload: newItems });
-      debouncedSync(() => cartAPI.addToCart(productId, quantity));
+      debouncedSync(() => cartAPI.addToCart({ product: productId, quantity }));
     },
     [state.items, debouncedSync]
   );
@@ -139,7 +139,7 @@ export const CartProvider = ({ children }) => {
         return itemProductId !== productId;
       });
       dispatch({ type: 'OPTIMISTIC_UPDATE', payload: newItems });
-      debouncedSync(() => cartAPI.removeCartItem(productId));
+      debouncedSync(() => cartAPI.removeFromCart(productId));
     },
     [state.items, debouncedSync]
   );
@@ -156,7 +156,7 @@ export const CartProvider = ({ children }) => {
         return item;
       });
       dispatch({ type: 'OPTIMISTIC_UPDATE', payload: newItems });
-      debouncedSync(() => cartAPI.updateCartItem(productId, { quantity }));
+      debouncedSync(() => cartAPI.updateItem({ product: productId, quantity }));
     },
     [state.items, debouncedSync, removeFromCart]
   );

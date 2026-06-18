@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { FiShoppingCart, FiMinus, FiPlus, FiCheck, FiAlertCircle, FiStar } from 'react-icons/fi';
+import { FiShoppingCart, FiMinus, FiPlus, FiCheck, FiAlertCircle, FiStar, FiRefreshCw } from 'react-icons/fi';
+import { motion, AnimatePresence } from 'framer-motion';
 import productAPI from '../api/productAPI';
 import reviewAPI from '../api/reviewAPI';
 import useAuth from '../hooks/useAuth';
@@ -8,6 +9,7 @@ import { useCart } from '../contexts/CartContext';
 import StarRating from '../components/products/StarRating';
 import ReviewCard from '../components/products/ReviewCard';
 import ErrorState from '../components/common/ErrorState';
+import ProductViewer from '../components/3d/ProductViewer';
 import toast from 'react-hot-toast';
 import { formatINR } from '../utils/formatCurrency';
 import parseAPIError from '../utils/errorParser';
@@ -22,6 +24,7 @@ const ProductDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedImage, setSelectedImage] = useState(0);
+  const [show3D, setShow3D] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [addingToCart, setAddingToCart] = useState(false);
   const [reviews, setReviews] = useState([]);
@@ -100,7 +103,7 @@ const ProductDetailPage = () => {
 
   if (!product) return null;
 
-  const images = product.images && product.images.length > 0 ? product.images : [{ url: 'https://via.placeholder.com/600' }];
+  const images = product.images && product.images.length > 0 ? product.images : [{ url: 'https://picsum.photos/seed/default/600' }];
   const inStock = product.stock > 0;
   const maxQty = Math.min(10, product.stock);
 
@@ -171,25 +174,70 @@ const ProductDetailPage = () => {
 
       <div style={styles.mainLayout}>
         <div style={styles.gallery}>
-          <div style={styles.mainImageWrap}>
-            <img src={images[selectedImage]?.url} alt={product.name} style={styles.mainImage} />
+          <div style={styles.viewToggle}>
+            <button
+              onClick={() => setShow3D(false)}
+              style={{
+                ...styles.viewToggleBtn,
+                ...(!show3D ? styles.viewToggleBtnActive : {}),
+              }}
+            >
+              <FiStar size={14} /> Photos
+            </button>
+            <button
+              onClick={() => setShow3D(true)}
+              style={{
+                ...styles.viewToggleBtn,
+                ...(show3D ? styles.viewToggleBtnActive : {}),
+              }}
+            >
+              <FiRefreshCw size={14} /> 3D View
+            </button>
           </div>
-          {images.length > 1 && (
-            <div style={styles.thumbnails}>
-              {images.map((img, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setSelectedImage(idx)}
-                  style={{
-                    ...styles.thumb,
-                    ...(idx === selectedImage ? styles.thumbActive : {}),
-                  }}
-                >
-                  <img src={img.url} alt="" style={styles.thumbImg} />
-                </button>
-              ))}
-            </div>
-          )}
+          <AnimatePresence mode="wait">
+            {show3D ? (
+              <motion.div
+                key="3d"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.3 }}
+              >
+                <ProductViewer
+                  color={product.discountPercent > 0 ? '#FF6B35' : '#4A90D9'}
+                  shape={product.category === 'Electronics' ? 'box' : product.category === 'Clothing' ? 'torus' : 'sphere'}
+                />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="image"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.3 }}
+              >
+                <div style={styles.mainImageWrap}>
+                  <img src={images[selectedImage]?.url} alt={product.name} style={styles.mainImage} />
+                </div>
+                {images.length > 1 && (
+                  <div style={styles.thumbnails}>
+                    {images.map((img, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setSelectedImage(idx)}
+                        style={{
+                          ...styles.thumb,
+                          ...(idx === selectedImage ? styles.thumbActive : {}),
+                        }}
+                      >
+                        <img src={img.url} alt="" style={styles.thumbImg} />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         <div style={styles.info}>
@@ -397,6 +445,31 @@ const styles = {
   gallery: {
     flex: '1 1 50%',
     minWidth: '300px',
+  },
+  viewToggle: {
+    display: 'flex',
+    gap: 'var(--space-2)',
+    marginBottom: 'var(--space-3)',
+  },
+  viewToggleBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--space-1)',
+    padding: 'var(--space-1) var(--space-4)',
+    borderRadius: 'var(--radius-full)',
+    fontSize: 'var(--text-xs)',
+    fontWeight: 600,
+    fontFamily: 'var(--font-mono)',
+    background: 'var(--glass-bg)',
+    border: '1px solid var(--color-border)',
+    color: 'var(--color-text-secondary)',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+  },
+  viewToggleBtnActive: {
+    background: 'rgba(255, 107, 53, 0.12)',
+    borderColor: 'rgba(255, 107, 53, 0.3)',
+    color: 'var(--color-primary)',
   },
   mainImageWrap: {
     width: '100%',

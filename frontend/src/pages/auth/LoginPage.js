@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { FiEye, FiEyeOff, FiShoppingBag } from 'react-icons/fi';
+import { FiEye, FiEyeOff, FiStar } from 'react-icons/fi';
+import { motion } from 'framer-motion';
 import useAuth from '../../hooks/useAuth';
+import ParticlesBackground from '../../components/3d/ParticlesBackground';
 import toast from 'react-hot-toast';
 import parseAPIError from '../../utils/errorParser';
 
@@ -49,20 +51,22 @@ const LoginPage = () => {
 
   return (
     <div style={styles.wrapper}>
-      <div style={styles.leftPanel}>
-        <div style={styles.leftContent}>
-          <Link to="/" style={styles.brand}>
-            Shop<span style={{ color: 'var(--color-primary)' }}>EZ</span>
-          </Link>
-          <h2 style={styles.tagline}>Welcome Back!</h2>
-          <p style={styles.subtext}>Log in to continue your shopping journey.</p>
-          <FiShoppingBag size={80} style={styles.icon} />
-        </div>
-      </div>
-      <div style={styles.rightPanel}>
-        <div style={styles.formContainer}>
-          <h1 style={styles.title}>Log In</h1>
-          <p style={styles.subtitle}>Access your account</p>
+      <ParticlesBackground count={50} color="255,107,53" speed={0.2} />
+      <div style={styles.panel}>
+        <motion.div
+          style={styles.formContainer}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <div style={styles.header}>
+            <Link to="/" style={styles.brand}>
+              <span style={styles.logoIcon}>✦</span>
+              Shop<span style={{ color: 'var(--color-primary)' }}>EZ</span>
+            </Link>
+            <h1 style={styles.title}>Welcome Back</h1>
+            <p style={styles.subtitle}>Log in to continue your shopping journey</p>
+          </div>
           <form onSubmit={handleSubmit} style={styles.form}>
             <div style={styles.field}>
               <label style={styles.label}>Email</label>
@@ -93,14 +97,25 @@ const LoginPage = () => {
               </div>
               {errors.password && <span style={styles.error}>{errors.password}</span>}
             </div>
-            <button type="submit" className="btn-primary" disabled={loading} style={styles.submitBtn}>
+            <motion.button
+              type="submit"
+              disabled={loading}
+              style={styles.submitBtn}
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
+            >
               {loading ? <span className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }}></span> : 'Log In'}
-            </button>
+            </motion.button>
           </form>
-          <p style={styles.footerText}>
-            Don't have an account? <Link to="/register" style={styles.link}>Register</Link>
-          </p>
-        </div>
+          <div style={styles.footer}>
+            <p style={styles.footerText}>
+              Don't have an account? <Link to="/register" style={styles.link}>Register</Link>
+            </p>
+            <Link to="/" style={styles.backLink}>
+              <FiStar size={12} /> Back to Home
+            </Link>
+          </div>
+        </motion.div>
       </div>
     </div>
   );
@@ -109,57 +124,45 @@ const LoginPage = () => {
 const styles = {
   wrapper: {
     display: 'flex',
-    minHeight: 'calc(100vh - var(--navbar-height) - 300px)',
-  },
-  leftPanel: {
-    flex: '1 1 45%',
-    background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%)',
-    display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 'var(--space-8)',
+    minHeight: 'calc(100vh - var(--navbar-height))',
+    padding: 'var(--space-6)',
     position: 'relative',
     overflow: 'hidden',
   },
-  leftContent: {
-    textAlign: 'center',
-    color: '#fff',
+  panel: {
+    width: '100%',
+    maxWidth: '440px',
+    position: 'relative',
     zIndex: 1,
+  },
+  formContainer: {
+    background: 'var(--glass-bg)',
+    backdropFilter: 'blur(20px)',
+    border: '1px solid var(--glass-border)',
+    borderRadius: 'var(--radius-xl)',
+    padding: 'var(--space-8)',
+    boxShadow: 'var(--glass-shadow)',
+  },
+  header: {
+    textAlign: 'center',
+    marginBottom: 'var(--space-8)',
   },
   brand: {
     fontFamily: 'var(--font-display)',
-    fontSize: 'var(--text-3xl)',
-    fontWeight: 700,
-    color: '#fff',
-    display: 'inline-block',
-    marginBottom: 'var(--space-6)',
-    textDecoration: 'none',
-  },
-  tagline: {
-    fontFamily: 'var(--font-display)',
     fontSize: 'var(--text-2xl)',
-    fontWeight: 600,
-    marginBottom: 'var(--space-3)',
-  },
-  subtext: {
-    fontSize: 'var(--text-base)',
-    opacity: 0.9,
-    marginBottom: 'var(--space-8)',
-  },
-  icon: {
-    opacity: 0.3,
-  },
-  rightPanel: {
-    flex: '1 1 55%',
-    display: 'flex',
+    fontWeight: 700,
+    color: 'var(--color-text-primary)',
+    display: 'inline-flex',
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 'var(--space-8)',
-    backgroundColor: 'var(--color-bg-card)',
+    gap: 'var(--space-1)',
+    marginBottom: 'var(--space-4)',
+    textDecoration: 'none',
+    letterSpacing: '0.03em',
   },
-  formContainer: {
-    width: '100%',
-    maxWidth: '420px',
+  logoIcon: {
+    color: 'var(--color-primary)',
   },
   title: {
     fontFamily: 'var(--font-display)',
@@ -170,8 +173,7 @@ const styles = {
   },
   subtitle: {
     fontSize: 'var(--text-sm)',
-    color: 'var(--color-text-secondary)',
-    marginBottom: 'var(--space-8)',
+    color: 'var(--color-text-muted)',
   },
   form: {
     display: 'flex',
@@ -194,8 +196,10 @@ const styles = {
     borderRadius: 'var(--radius-md)',
     fontSize: 'var(--text-sm)',
     outline: 'none',
-    transition: 'border-color var(--transition-fast)',
+    transition: 'all 0.2s',
     width: '100%',
+    backgroundColor: 'var(--color-bg)',
+    color: 'var(--color-text-primary)',
   },
   inputError: {
     borderColor: 'var(--color-error)',
@@ -227,16 +231,43 @@ const styles = {
     fontSize: 'var(--text-base)',
     marginTop: 'var(--space-2)',
     minHeight: '48px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 'var(--space-2)',
+    background: 'linear-gradient(135deg, var(--color-primary), var(--color-primary-dark))',
+    color: '#fff',
+    fontWeight: 600,
+    borderRadius: 'var(--radius-full)',
+    border: 'none',
+    cursor: 'pointer',
+    boxShadow: '0 4px 15px rgba(255, 107, 53, 0.3)',
+    fontFamily: 'inherit',
+    letterSpacing: '0.03em',
+    textTransform: 'uppercase',
+  },
+  footer: {
+    textAlign: 'center',
+    marginTop: 'var(--space-6)',
   },
   footerText: {
-    textAlign: 'center',
     fontSize: 'var(--text-sm)',
     color: 'var(--color-text-secondary)',
-    marginTop: 'var(--space-6)',
+    marginBottom: 'var(--space-2)',
   },
   link: {
     color: 'var(--color-primary)',
     fontWeight: 600,
+    textDecoration: 'none',
+  },
+  backLink: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 'var(--space-1)',
+    fontSize: 'var(--text-xs)',
+    color: 'var(--color-text-muted)',
+    textDecoration: 'none',
+    fontFamily: 'var(--font-mono)',
   },
 };
 

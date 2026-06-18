@@ -130,7 +130,7 @@ const OrderConfirmPage = () => {
               const product = item.product || {};
               return (
                 <div key={idx} style={styles.item}>
-                  <img src={product.images?.[0]?.url || 'https://via.placeholder.com/72'} alt={product.name} style={styles.itemImg} />
+                  <img src={product.images?.[0]?.url || 'https://picsum.photos/seed/default/72'} alt={product.name} style={styles.itemImg} />
                   <div style={styles.itemInfo}>
                     <p style={styles.itemName}>{product.name || 'Product'}</p>
                     <p style={styles.itemDetail}>Qty: {item.quantity} × {formatINR(item.price)}</p>

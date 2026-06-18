@@ -5,14 +5,14 @@ const { sendTokenResponse } = require('../utils/tokenUtils');
 
 const registerUser = async (req, res, next) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, role } = req.body;
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return next(new AppError('A user with this email already exists.', 400));
     }
 
-    const user = await User.create({ name, email, password });
+    const user = await User.create({ name, email, password, role });
 
     await Cart.create({ user: user._id, items: [] });
 

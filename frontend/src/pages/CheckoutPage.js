@@ -49,7 +49,7 @@ const CheckoutPage = () => {
     setError(null);
     try {
       const data = await cartAPI.getCart();
-      setCart(data.cart);
+      setCart(data);
     } catch (err) {
       setError(parseAPIError(err));
     } finally {
@@ -60,6 +60,22 @@ const CheckoutPage = () => {
   useEffect(() => {
     fetchCart();
   }, [fetchCart]);
+
+  // Compute derived values before any effects/returns that reference them
+  const items = cart?.items || [];
+  const subtotal = items.reduce((sum, item) => {
+    const price = item.priceAtAdd || item.product?.finalPrice || item.product?.price || 0;
+    return sum + price * item.quantity;
+  }, 0);
+  const shipping = subtotal >= 999 ? 0 : 99;
+  const tax = Math.round(subtotal * 0.18 * 100) / 100;
+  const total = Math.round((subtotal + shipping + tax) * 100) / 100;
+
+  useEffect(() => {
+    if (!loading && items.length === 0) {
+      navigate('/cart');
+    }
+  }, [loading, items.length, navigate]);
 
   const handleAddressChange = (e) => {
     const { name, value } = e.target;
@@ -159,17 +175,7 @@ const CheckoutPage = () => {
     );
   }
 
-  const items = cart?.items || [];
-  const subtotal = items.reduce((sum, item) => {
-    const price = item.priceAtAdd || item.product?.finalPrice || item.product?.price || 0;
-    return sum + price * item.quantity;
-  }, 0);
-  const shipping = subtotal >= 999 ? 0 : 99;
-  const tax = Math.round(subtotal * 0.18 * 100) / 100;
-  const total = Math.round((subtotal + shipping + tax) * 100) / 100;
-
-  if (items.length === 0) {
-    navigate('/cart');
+  if (items.length === 0 && !loading) {
     return null;
   }
 
@@ -362,7 +368,7 @@ const CheckoutPage = () => {
                 {items.map((item) => {
                   const p = item.product || {};
                   const price = item.priceAtAdd || p.finalPrice || p.price || 0;
-                  const img = p.images?.[0]?.url || 'https://via.placeholder.com/48';
+                  const img = p.images?.[0]?.url || 'https://picsum.photos/seed/default/48';
                   return (
                     <div key={item._id || p._id} style={styles.reviewItem}>
                       <img src={img} alt={p.name} style={styles.reviewItemImg} />
