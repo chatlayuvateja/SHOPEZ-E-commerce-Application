@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiPackage, FiChevronDown, FiChevronUp, FiXCircle } from 'react-icons/fi';
+import { FiPackage, FiChevronDown, FiChevronUp, FiXCircle } from '../utils/Icons';
 import orderAPI from '../api/orderAPI';
 import OrderStatusBadge from '../components/orders/OrderStatusBadge';
 import EmptyState from '../components/common/EmptyState';
 import ErrorState from '../components/common/ErrorState';
 import Pagination from '../components/common/Pagination';
-import toast from 'react-hot-toast';
+import { useToast } from '../components/common/Toast';
 import { formatINR } from '../utils/formatCurrency';
 import { formatDate } from '../utils/formatDate';
 import parseAPIError from '../utils/errorParser';
 
 const MyOrdersPage = () => {
+  const showToast = useToast();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -48,7 +49,7 @@ const MyOrdersPage = () => {
 
   const handleCancelSubmit = async () => {
     if (!cancelReason.trim()) {
-      toast.error('Please provide a reason for cancellation');
+      showToast('Please provide a reason for cancellation', 'error');
       return;
     }
     setCancelling(true);
@@ -57,9 +58,9 @@ const MyOrdersPage = () => {
       setOrders((prev) => prev.map((o) => (o._id === cancellingOrder._id ? data.order : o)));
       setShowCancelModal(false);
       setCancellingOrder(null);
-      toast.success('Order cancelled successfully');
+      showToast('Order cancelled successfully', 'success');
     } catch (err) {
-      toast.error(parseAPIError(err));
+      showToast(parseAPIError(err), 'error');
     } finally {
       setCancelling(false);
     }

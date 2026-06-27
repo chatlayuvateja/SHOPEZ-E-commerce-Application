@@ -1,5 +1,5 @@
 import React from 'react';
-import { FiAlertTriangle } from 'react-icons/fi';
+import { FiAlertTriangle } from '../../utils/Icons';
 
 const ErrorState = ({ message = 'Something went wrong', onRetry }) => {
   return (

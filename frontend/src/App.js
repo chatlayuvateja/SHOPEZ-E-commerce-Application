@@ -1,16 +1,14 @@
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { Toaster } from 'react-hot-toast';
+import { BrowserRouter, Routes, Route } from './router/Router';
+import { ToastProvider } from './components/common/Toast';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './contexts/CartContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import ErrorBoundary from './components/ErrorBoundary';
 
 import Layout from './components/layout/Layout';
-import PrivateRoute from './components/common/PrivateRoute';
+import { PrivateRoute, CustomerRoute, SellerRoute, AdminRoute } from './components/common/GuardedRoutes';
 import ScrollToTop from './components/common/ScrollToTop';
-import SellerRoute from './components/common/SellerRoute';
-import AdminRoute from './components/common/AdminRoute';
 
 const HomePage = lazy(() => import('./pages/HomePage'));
 const ProductListPage = lazy(() => import('./pages/ProductListPage'));
@@ -53,20 +51,7 @@ const App = () => {
         <ThemeProvider>
           <AuthProvider>
             <CartProvider>
-              <Toaster
-                position="top-center"
-                toastOptions={{
-                  duration: 3000,
-                  style: {
-                    fontFamily: 'var(--font-body)',
-                    fontSize: 'var(--text-sm)',
-                    borderRadius: 'var(--radius-lg)',
-                    background: 'var(--color-bg-card)',
-                    color: 'var(--color-text-primary)',
-                    border: '1px solid var(--color-border)',
-                  },
-                }}
-              />
+              <ToastProvider>
             <ScrollToTop />
             <Suspense fallback={<PageLoader />}>
               <Routes>
@@ -75,15 +60,16 @@ const App = () => {
                   <Route path="/products/:slug" element={<Layout><ProductDetailPage /></Layout>} />
                   <Route path="/login" element={<Layout><LoginPage /></Layout>} />
                   <Route path="/register" element={<Layout><RegisterPage /></Layout>} />
-                  <Route path="/cart" element={<Layout><PrivateRoute><CartPage /></PrivateRoute></Layout>} />
-                  <Route path="/checkout" element={<Layout><PrivateRoute><CheckoutPage /></PrivateRoute></Layout>} />
-                  <Route path="/order-confirmation/:id" element={<Layout><PrivateRoute><OrderConfirmPage /></PrivateRoute></Layout>} />
-                  <Route path="/my-orders" element={<Layout><PrivateRoute><MyOrdersPage /></PrivateRoute></Layout>} />
+                  <Route path="/cart" element={<Layout><PrivateRoute><CustomerRoute><CartPage /></CustomerRoute></PrivateRoute></Layout>} />
+                  <Route path="/checkout" element={<Layout><PrivateRoute><CustomerRoute><CheckoutPage /></CustomerRoute></PrivateRoute></Layout>} />
+                  <Route path="/order-confirmation/:id" element={<Layout><PrivateRoute><CustomerRoute><OrderConfirmPage /></CustomerRoute></PrivateRoute></Layout>} />
+                  <Route path="/my-orders" element={<Layout><PrivateRoute><CustomerRoute><MyOrdersPage /></CustomerRoute></PrivateRoute></Layout>} />
                   <Route path="/seller/dashboard" element={<Layout><SellerRoute><SellerDashboardPage /></SellerRoute></Layout>} />
                   <Route path="/admin/dashboard" element={<Layout><AdminRoute><AdminDashboardPage /></AdminRoute></Layout>} />
                   <Route path="*" element={<Layout><NotFoundPage /></Layout>} />
                 </Routes>
               </Suspense>
+              </ToastProvider>
             </CartProvider>
           </AuthProvider>
         </ThemeProvider>

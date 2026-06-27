@@ -1,10 +1,8 @@
-import axiosInstance from './axiosInstance';
+import api from './fetchInstance';
 
-const reviewAPI = {
-  getProductReviews: (productId, params) =>
-    axiosInstance.get(`/reviews/product/${productId}`, { params }).then((res) => res.data),
-  create: (data) => axiosInstance.post('/reviews', data).then((res) => res.data),
-  delete: (id) => axiosInstance.delete(`/reviews/${id}`).then((res) => res.data),
-};
+export const getProductReviews = (productId, params) => api.get(`/reviews/product/${productId}`, { params });
+export const create = (data) => api.post('/reviews', data);
+export const deleteReview = (id) => api.delete(`/reviews/${id}`);
 
+const reviewAPI = { getProductReviews, create, delete: deleteReview };
 export default reviewAPI;

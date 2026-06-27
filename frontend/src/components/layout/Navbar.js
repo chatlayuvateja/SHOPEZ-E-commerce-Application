@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { FiSearch, FiShoppingCart, FiLogOut, FiPackage, FiGrid, FiShield, FiMenu, FiX, FiSun, FiMoon, FiChevronDown } from 'react-icons/fi';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Link, useNavigate, useLocation } from '../../router/Router';
+import { FiSearch, FiShoppingCart, FiLogOut, FiPackage, FiGrid, FiShield, FiMenu, FiX, FiSun, FiMoon, FiChevronDown, FiTrendingUp, FiPlus } from '../../utils/Icons';
 import useAuth from '../../hooks/useAuth';
 import { useCart } from '../../contexts/CartContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -21,6 +20,10 @@ const Navbar = () => {
   const [searchFocused, setSearchFocused] = useState(false);
   const dropdownRef = useRef(null);
   const searchRef = useRef(null);
+
+  const isSeller = user?.role === 'SELLER';
+  const isAdmin = user?.role === 'ADMIN';
+  const isCustomer = user?.role === 'USER';
 
   useEffect(() => {
     const handleScroll = () => {
@@ -63,79 +66,76 @@ const Navbar = () => {
     navigate('/');
   };
 
-  const navVariants = {
-    visible: { y: 0, transition: { type: 'spring', stiffness: 300, damping: 30 } },
-    hidden: { y: '-100%', transition: { type: 'spring', stiffness: 300, damping: 30 } },
-  };
-
   return (
-    <motion.nav
-      variants={navVariants}
-      animate={visible ? 'visible' : 'hidden'}
+    <nav
       style={{
         ...styles.nav,
         ...(scrolled ? styles.navScrolled : {}),
+        transform: visible ? 'translateY(0)' : 'translateY(-100%)',
+        transition: 'transform 0.3s',
       }}
     >
       <div className="container" style={styles.inner}>
-        <Link to="/" style={styles.logo}>
+        <Link to={isSeller ? '/seller/dashboard' : '/'} style={styles.logo}>
           <span style={styles.logoIcon}>✦</span>
           Shop<span style={styles.logoAccent}>EZ</span>
         </Link>
 
-        <form style={styles.searchForm} onSubmit={handleSearch}>
-          <div style={{
-            ...styles.searchWrap,
-            ...(searchFocused ? styles.searchWrapFocused : {}),
-          }}>
-            <FiSearch style={styles.searchIcon} />
-            <input
-              ref={searchRef}
-              type="text"
-              placeholder="Search products..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onFocus={() => setSearchFocused(true)}
-              onBlur={() => setSearchFocused(false)}
-              style={styles.searchInput}
-            />
-            {searchQuery && (
-              <button type="button" onClick={() => setSearchQuery('')} style={styles.searchClear}>
-                <FiX size={14} />
-              </button>
-            )}
+        {(!isAuthenticated || isCustomer || isAdmin) && (
+          <form style={styles.searchForm} onSubmit={handleSearch}>
+            <div style={{
+              ...styles.searchWrap,
+              ...(searchFocused ? styles.searchWrapFocused : {}),
+            }}>
+              <FiSearch style={styles.searchIcon} />
+              <input
+                ref={searchRef}
+                type="text"
+                placeholder="Search products..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setSearchFocused(false)}
+                style={styles.searchInput}
+              />
+              {searchQuery && (
+                <button type="button" onClick={() => setSearchQuery('')} style={styles.searchClear}>
+                  <FiX size={14} />
+                </button>
+              )}
+            </div>
+          </form>
+        )}
+
+        {isSeller && (
+          <div style={styles.sellerBadge}>
+            <FiTrendingUp size={14} /> Seller Mode
           </div>
-        </form>
+        )}
 
         <div style={styles.actions}>
           <button onClick={toggleTheme} style={styles.themeBtn} aria-label="Toggle theme">
-            <motion.div
-              key={theme}
-              initial={{ rotate: -90, opacity: 0 }}
-              animate={{ rotate: 0, opacity: 1 }}
-              transition={{ duration: 0.3 }}
-            >
+            <div className="rotate-animation">
               {theme === 'dark' ? <FiSun size={18} /> : <FiMoon size={18} />}
-            </motion.div>
+            </div>
           </button>
 
-          <Link to="/cart" style={styles.cartBtn}>
-            <FiShoppingCart size={20} />
-            <AnimatePresence>
+          {(!isAuthenticated || isCustomer || isAdmin) && (
+            <Link to="/cart" style={styles.cartBtn}>
+              <FiShoppingCart size={20} />
               {itemCount > 0 && (
-                <motion.span
-                  key={itemCount}
-                  style={styles.cartBadge}
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  exit={{ scale: 0 }}
-                  transition={{ type: 'spring', stiffness: 500, damping: 25 }}
-                >
+                <span style={styles.cartBadge}>
                   {itemCount > 99 ? '99+' : itemCount}
-                </motion.span>
+                </span>
               )}
-            </AnimatePresence>
-          </Link>
+            </Link>
+          )}
+
+          {isAuthenticated && isSeller && (
+            <Link to="/seller/dashboard" style={styles.sellerLink}>
+              <FiGrid size={16} /> Dashboard
+            </Link>
+          )}
 
           {isAuthenticated ? (
             <div ref={dropdownRef} style={styles.userMenu}>
@@ -149,45 +149,59 @@ const Navbar = () => {
                   transition: 'transform 0.3s',
                 }} />
               </button>
-              <AnimatePresence>
-                {showDropdown && (
-                  <motion.div
-                    style={styles.dropdown}
-                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                    transition={{ duration: 0.15 }}
-                  >
-                    <div style={styles.dropdownHeader}>
-                      <div style={styles.dropdownAvatar}>
-                        {user?.name?.charAt(0)?.toUpperCase() || 'U'}
-                      </div>
-                      <div>
-                        <p style={styles.dropdownName}>{user?.name}</p>
-                        <p style={styles.dropdownEmail}>{user?.email}</p>
-                      </div>
+              {showDropdown && (
+                <div style={styles.dropdown} className="fade-in-up">
+                  <div style={styles.dropdownHeader}>
+                    <div style={styles.dropdownAvatar}>
+                      {user?.name?.charAt(0)?.toUpperCase() || 'U'}
                     </div>
-                    <div style={styles.dropdownDivider} />
+                    <div>
+                      <p style={styles.dropdownName}>{user?.name}</p>
+                      <p style={styles.dropdownEmail}>{user?.email}</p>
+                    </div>
+                  </div>
+                  <div style={styles.dropdownDivider} />
+
+                  {isCustomer && (
                     <Link to="/my-orders" style={styles.dropdownItem} onClick={() => setShowDropdown(false)}>
                       <FiPackage size={16} /> My Orders
                     </Link>
-                    {(user?.role === 'SELLER' || user?.role === 'ADMIN') && (
+                  )}
+
+                  {isSeller && (
+                    <>
+                      <Link to="/seller/dashboard" style={styles.dropdownItem} onClick={() => setShowDropdown(false)}>
+                        <FiTrendingUp size={16} /> Dashboard
+                      </Link>
+                      <Link to="/seller/dashboard?tab=products" style={styles.dropdownItem} onClick={() => setShowDropdown(false)}>
+                        <FiGrid size={16} /> My Products
+                      </Link>
+                      <Link to="/seller/dashboard?tab=add" style={styles.dropdownItem} onClick={() => setShowDropdown(false)}>
+                        <FiPlus size={16} /> Add Product
+                      </Link>
+                    </>
+                  )}
+
+                  {isAdmin && (
+                    <>
+                      <Link to="/my-orders" style={styles.dropdownItem} onClick={() => setShowDropdown(false)}>
+                        <FiPackage size={16} /> My Orders
+                      </Link>
                       <Link to="/seller/dashboard" style={styles.dropdownItem} onClick={() => setShowDropdown(false)}>
                         <FiGrid size={16} /> Seller Dashboard
                       </Link>
-                    )}
-                    {user?.role === 'ADMIN' && (
                       <Link to="/admin/dashboard" style={styles.dropdownItem} onClick={() => setShowDropdown(false)}>
                         <FiShield size={16} /> Admin Panel
                       </Link>
-                    )}
-                    <div style={styles.dropdownDivider} />
-                    <button onClick={handleLogout} style={styles.dropdownItem}>
-                      <FiLogOut size={16} /> Logout
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                    </>
+                  )}
+
+                  <div style={styles.dropdownDivider} />
+                  <button onClick={handleLogout} style={styles.dropdownItem}>
+                    <FiLogOut size={16} /> Logout
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div style={styles.authBtns}>
@@ -202,15 +216,9 @@ const Navbar = () => {
         </div>
       </div>
 
-      <AnimatePresence>
-        {mobileMenuOpen && (
-          <motion.div
-            style={styles.mobileMenu}
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.3 }}
-          >
+      {mobileMenuOpen && (
+        <div style={styles.mobileMenu} className="fade-in-up">
+          {(!isAuthenticated || isCustomer || isAdmin) && (
             <form style={styles.mobileSearch} onSubmit={handleSearch}>
               <div style={styles.searchWrap}>
                 <FiSearch style={styles.searchIcon} />
@@ -223,41 +231,67 @@ const Navbar = () => {
                 />
               </div>
             </form>
+          )}
+
+          {isSeller && (
+            <div style={styles.mobileSellerHeader}>Seller Mode</div>
+          )}
+
+          {(!isAuthenticated || isCustomer || isAdmin) && (
             <Link to="/cart" style={styles.mobileLink} onClick={() => setMobileMenuOpen(false)}>
               <FiShoppingCart size={18} /> Cart {itemCount > 0 && `(${itemCount})`}
             </Link>
-            {isAuthenticated ? (
-              <>
+          )}
+
+          {isAuthenticated ? (
+            <>
+              {isCustomer && (
                 <Link to="/my-orders" style={styles.mobileLink} onClick={() => setMobileMenuOpen(false)}>
                   <FiPackage size={18} /> My Orders
                 </Link>
-                {(user?.role === 'SELLER' || user?.role === 'ADMIN') && (
+              )}
+              {isSeller && (
+                <>
+                  <Link to="/seller/dashboard" style={styles.mobileLink} onClick={() => setMobileMenuOpen(false)}>
+                    <FiTrendingUp size={18} /> Dashboard
+                  </Link>
+                  <Link to="/seller/dashboard?tab=products" style={styles.mobileLink} onClick={() => setMobileMenuOpen(false)}>
+                    <FiGrid size={18} /> My Products
+                  </Link>
+                  <Link to="/seller/dashboard?tab=add" style={styles.mobileLink} onClick={() => setMobileMenuOpen(false)}>
+                    <FiPlus size={18} /> Add Product
+                  </Link>
+                </>
+              )}
+              {isAdmin && (
+                <>
+                  <Link to="/my-orders" style={styles.mobileLink} onClick={() => setMobileMenuOpen(false)}>
+                    <FiPackage size={18} /> My Orders
+                  </Link>
                   <Link to="/seller/dashboard" style={styles.mobileLink} onClick={() => setMobileMenuOpen(false)}>
                     <FiGrid size={18} /> Seller Dashboard
                   </Link>
-                )}
-                {user?.role === 'ADMIN' && (
                   <Link to="/admin/dashboard" style={styles.mobileLink} onClick={() => setMobileMenuOpen(false)}>
                     <FiShield size={18} /> Admin Panel
                   </Link>
-                )}
-                <button onClick={handleLogout} style={styles.mobileLink}>
-                  <FiLogOut size={18} /> Logout
-                </button>
-              </>
-            ) : (
-              <>
-                <Link to="/login" style={styles.mobileLink} onClick={() => setMobileMenuOpen(false)}>Log In</Link>
-                <Link to="/register" style={styles.mobileLink} onClick={() => setMobileMenuOpen(false)}>Sign Up</Link>
-              </>
-            )}
-            <button onClick={toggleTheme} style={styles.mobileLink}>
-              {theme === 'dark' ? <FiSun size={18} /> : <FiMoon size={18} />} {theme === 'dark' ? 'Light' : 'Dark'} Mode
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.nav>
+                </>
+              )}
+              <button onClick={handleLogout} style={styles.mobileLink}>
+                <FiLogOut size={18} /> Logout
+              </button>
+            </>
+          ) : (
+            <>
+              <Link to="/login" style={styles.mobileLink} onClick={() => setMobileMenuOpen(false)}>Log In</Link>
+              <Link to="/register" style={styles.mobileLink} onClick={() => setMobileMenuOpen(false)}>Sign Up</Link>
+            </>
+          )}
+          <button onClick={toggleTheme} style={styles.mobileLink}>
+            {theme === 'dark' ? <FiSun size={18} /> : <FiMoon size={18} />} {theme === 'dark' ? 'Light' : 'Dark'} Mode
+          </button>
+        </div>
+      )}
+    </nav>
   );
 };
 
@@ -297,6 +331,7 @@ const styles = {
     alignItems: 'center',
     gap: 'var(--space-2)',
     letterSpacing: '0.05em',
+    textDecoration: 'none',
   },
   logoIcon: {
     color: 'var(--color-primary)',
@@ -345,6 +380,24 @@ const styles = {
     alignItems: 'center',
     padding: 'var(--space-1)',
     flexShrink: 0,
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+  },
+  sellerBadge: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--space-1)',
+    padding: 'var(--space-1) var(--space-3)',
+    fontSize: 'var(--text-xs)',
+    fontWeight: 600,
+    color: 'var(--color-primary)',
+    background: 'rgba(255,107,53,0.1)',
+    borderRadius: 'var(--radius-full)',
+    border: '1px solid rgba(255,107,53,0.2)',
+    whiteSpace: 'nowrap',
+    letterSpacing: '0.05em',
+    textTransform: 'uppercase',
   },
   actions: {
     display: 'flex',
@@ -369,6 +422,7 @@ const styles = {
     alignItems: 'center',
     padding: 'var(--space-2)',
     transition: 'color 0.2s',
+    textDecoration: 'none',
   },
   cartBadge: {
     position: 'absolute',
@@ -404,6 +458,7 @@ const styles = {
     background: 'rgba(255, 255, 255, 0.05)',
     border: '1px solid rgba(255, 255, 255, 0.06)',
     transition: 'all 0.3s',
+    fontFamily: 'inherit',
   },
   userAvatar: {
     width: '32px',
@@ -507,6 +562,20 @@ const styles = {
     transition: 'all 0.3s',
     boxShadow: '0 4px 15px rgba(255, 107, 53, 0.3)',
   },
+  sellerLink: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 'var(--space-2)',
+    padding: 'var(--space-2) var(--space-4)',
+    fontSize: 'var(--text-sm)',
+    fontWeight: 600,
+    color: 'var(--color-primary)',
+    borderRadius: 'var(--radius-full)',
+    textDecoration: 'none',
+    background: 'rgba(255,107,53,0.08)',
+    border: '1px solid rgba(255,107,53,0.15)',
+    transition: 'all 0.3s',
+  },
   menuBtn: {
     display: 'none',
     color: 'var(--color-text-primary)',
@@ -528,6 +597,17 @@ const styles = {
   },
   mobileSearch: {
     marginBottom: 'var(--space-3)',
+  },
+  mobileSellerHeader: {
+    padding: 'var(--space-2)',
+    fontSize: 'var(--text-xs)',
+    fontWeight: 700,
+    color: 'var(--color-primary)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.1em',
+    textAlign: 'center',
+    borderBottom: '1px solid rgba(255,107,53,0.15)',
+    marginBottom: 'var(--space-2)',
   },
   mobileLink: {
     display: 'flex',

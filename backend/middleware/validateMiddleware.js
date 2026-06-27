@@ -1,93 +1,39 @@
-const { body, validationResult } = require('express-validator');
+const { validate, notEmpty, isEmail, minLength, maxLength, isFloat, isInt, isIn, isArray, matches } = require('../utils/validate');
 
-const validateRegister = [
-  body('name')
-    .notEmpty()
-    .withMessage('Name is required')
-    .isLength({ min: 2, max: 50 })
-    .withMessage('Name must be between 2 and 50 characters'),
-  body('email')
-    .isEmail()
-    .withMessage('Please provide a valid email address')
-    .normalizeEmail(),
-  body('password')
-    .isLength({ min: 8 })
-    .withMessage('Password must be at least 8 characters')
-    .matches(/^(?=.*[a-zA-Z])(?=.*\d)/)
-    .withMessage('Password must contain at least one letter and one number'),
-];
+const validateRegister = validate([
+  { field: 'name', checks: [notEmpty('Name is required'), minLength(2, 'Name must be at least 2 characters'), maxLength(50, 'Name cannot exceed 50 characters')] },
+  { field: 'email', checks: [notEmpty('Email is required'), isEmail('Please provide a valid email address')] },
+  { field: 'password', checks: [notEmpty('Password is required'), minLength(8, 'Password must be at least 8 characters'), matches(/^(?=.*[a-zA-Z])(?=.*\d)/, 'Password must contain at least one letter and one number')] },
+]);
 
-const validateLogin = [
-  body('email')
-    .isEmail()
-    .withMessage('Please provide a valid email address')
-    .normalizeEmail(),
-  body('password')
-    .notEmpty()
-    .withMessage('Password is required'),
-];
+const validateLogin = validate([
+  { field: 'email', checks: [notEmpty('Email is required'), isEmail('Please provide a valid email address')] },
+  { field: 'password', checks: [notEmpty('Password is required')] },
+]);
 
-const handleValidationErrors = (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    const formattedErrors = errors.array().map((err) => ({
-      field: err.path,
-      message: err.msg,
-    }));
-    return res.status(422).json({
-      status: 'fail',
-      errors: formattedErrors,
-    });
-  }
-  next();
-};
+const validateCreateProduct = validate([
+  { field: 'name', checks: [notEmpty('Product name is required'), maxLength(200, 'Product name must be under 200 characters')] },
+  { field: 'price', checks: [notEmpty('Price is required'), isFloat({ min: 0.01 }, 'Price must be greater than 0')] },
+  { field: 'description', checks: [notEmpty('Description is required')] },
+  { field: 'category', checks: [notEmpty('Category is required')] },
+  { field: 'stock', checks: [notEmpty('Stock is required'), isInt({ min: 0 }, 'Stock must be a non-negative integer')] },
+  { field: 'images', checks: [isArray({ min: 1 }, 'At least one image is required')] },
+]);
 
-const validateCreateProduct = [
-  body('name')
-    .notEmpty().withMessage('Product name is required')
-    .isLength({ max: 200 }).withMessage('Product name must be under 200 characters'),
-  body('price')
-    .isFloat({ min: 0.01 }).withMessage('Price must be greater than 0'),
-  body('description')
-    .notEmpty().withMessage('Description is required'),
-  body('category')
-    .notEmpty().withMessage('Category is required'),
-  body('stock')
-    .isInt({ min: 0 }).withMessage('Stock must be a non-negative integer'),
-  body('images')
-    .isArray({ min: 1 }).withMessage('At least one image is required'),
-  body('images.*')
-    .isString().notEmpty().withMessage('Each image URL must be a non-empty string'),
-  handleValidationErrors,
-];
+const validateCreateOrder = validate([
+  { field: 'shippingAddress', checks: [notEmpty('Shipping address is required')] },
+  { field: 'shippingAddress.fullName', checks: [notEmpty('Full name is required')] },
+  { field: 'shippingAddress.phone', checks: [notEmpty('Phone number is required')] },
+  { field: 'shippingAddress.street', checks: [notEmpty('Street address is required')] },
+  { field: 'shippingAddress.city', checks: [notEmpty('City is required')] },
+  { field: 'shippingAddress.state', checks: [notEmpty('State is required')] },
+  { field: 'shippingAddress.zipCode', checks: [notEmpty('Zip code is required')] },
+  { field: 'paymentMethod', checks: [notEmpty('Payment method is required'), isIn(['cod', 'upi', 'card', 'netbanking', 'COD', 'UPI', 'CARD', 'NETBANKING'], 'Invalid payment method')] },
+]);
 
-const validateCreateOrder = [
-  body('shippingAddress')
-    .notEmpty().withMessage('Shipping address is required'),
-  body('shippingAddress.fullName')
-    .notEmpty().withMessage('Full name is required'),
-  body('shippingAddress.phone')
-    .notEmpty().withMessage('Phone number is required'),
-  body('shippingAddress.address')
-    .notEmpty().withMessage('Address is required'),
-  body('shippingAddress.city')
-    .notEmpty().withMessage('City is required'),
-  body('shippingAddress.state')
-    .notEmpty().withMessage('State is required'),
-  body('shippingAddress.pincode')
-    .notEmpty().withMessage('Pincode is required'),
-  body('paymentMethod')
-    .isIn(['COD', 'Card', 'UPI', 'Net Banking']).withMessage('Invalid payment method'),
-  handleValidationErrors,
-];
+const validateCreateReview = validate([
+  { field: 'rating', checks: [notEmpty('Rating is required'), isInt({ min: 1, max: 5 }, 'Rating must be between 1 and 5')] },
+  { field: 'comment', checks: [notEmpty('Review comment is required'), minLength(10, 'Review must be at least 10 characters'), maxLength(1000, 'Review cannot exceed 1000 characters')] },
+]);
 
-const validateCreateReview = [
-  body('rating')
-    .isInt({ min: 1, max: 5 }).withMessage('Rating must be between 1 and 5'),
-  body('comment')
-    .notEmpty().withMessage('Review comment is required')
-    .isLength({ min: 10, max: 1000 }).withMessage('Review must be between 10 and 1000 characters'),
-  handleValidationErrors,
-];
-
-module.exports = { validateRegister, validateLogin, handleValidationErrors, validateCreateProduct, validateCreateOrder, validateCreateReview };
+module.exports = { validateRegister, validateLogin, validateCreateProduct, validateCreateOrder, validateCreateReview };

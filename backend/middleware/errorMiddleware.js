@@ -1,52 +1,43 @@
 const AppError = require('../utils/AppError');
 
-const handleCastErrorDB = (err) => {
-  const message = `Invalid ${err.path}: ${err.value}`;
-  return new AppError(message, 400);
-};
-
-const handleValidationErrorDB = (err) => {
-  const messages = Object.values(err.errors).map((el) => el.message);
-  const message = messages.join('. ');
-  return new AppError(message, 400);
-};
-
-const handleDuplicateFieldsDB = (err) => {
-  const field = Object.keys(err.keyValue)[0];
-  const message = `Duplicate field value: ${field} already exists`;
-  return new AppError(message, 400);
-};
-
-const handleJWTError = () => {
-  return new AppError('Invalid token. Please log in again.', 401);
-};
-
-const handleJWTExpiredError = () => {
-  return new AppError('Your token has expired. Please log in again.', 401);
-};
-
 const errorMiddleware = (err, req, res, next) => {
-  let error = { ...err, message: err.message, stack: err.stack };
+  let statusCode = err.statusCode || 500;
+  let message = err.message || 'Internal Server Error';
+  let status = err.status || 'error';
 
-  if (err.name === 'CastError') error = handleCastErrorDB(err);
-  if (err.name === 'ValidationError') error = handleValidationErrorDB(err);
-  if (err.code === 11000) error = handleDuplicateFieldsDB(err);
-  if (err.name === 'JsonWebTokenError') error = handleJWTError();
-  if (err.name === 'TokenExpiredError') error = handleJWTExpiredError();
+  // MongoDB duplicate key error
+  if (err.code === 11000) {
+    statusCode = 400;
+    const field = Object.keys(err.keyPattern || {}).join(', ');
+    message = `Duplicate field value: ${field} already exists. Please use another value.`;
+    status = 'fail';
+  }
 
-  const statusCode = error.statusCode || 500;
-  const status = error.status || 'error';
+  // MongoDB validation error
+  if (err.name === 'ValidationError') {
+    statusCode = 400;
+    const messages = Object.values(err.errors || {}).map((e) => e.message).join('. ');
+    message = messages || 'Validation failed.';
+    status = 'fail';
+  }
+
+  // MongoDB cast error (invalid ObjectId)
+  if (err.name === 'CastError') {
+    statusCode = 400;
+    message = `Invalid ${err.path}: ${err.value}`;
+    status = 'fail';
+  }
 
   if (process.env.NODE_ENV === 'development') {
     res.status(statusCode).json({
       status,
-      message: error.message,
-      stack: error.stack,
+      message,
+      stack: err.stack,
     });
   } else {
     res.status(statusCode).json({
       status,
-      message: error.message,
+      message: err.isOperational ? message : 'Something went wrong',
     });
   }
 };

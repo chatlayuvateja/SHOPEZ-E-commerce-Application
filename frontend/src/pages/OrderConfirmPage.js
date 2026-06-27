@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { FiPackage, FiMapPin, FiCreditCard, FiHome, FiShoppingBag, FiCopy, FiCheck } from 'react-icons/fi';
+import { Link, useParams } from '../router/Router';
+import { FiPackage, FiMapPin, FiCreditCard, FiHome, FiShoppingBag, FiCopy, FiCheck } from '../utils/Icons';
 import orderAPI from '../api/orderAPI';
 import OrderStatusBadge from '../components/orders/OrderStatusBadge';
 import ErrorState from '../components/common/ErrorState';
@@ -16,6 +16,7 @@ const OrderConfirmPage = () => {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    if (!id) return;
     const fetchOrder = async () => {
       setLoading(true);
       setError(null);
@@ -71,7 +72,7 @@ const OrderConfirmPage = () => {
 
   return (
     <div className="container" style={styles.page}>
-      <div style={styles.successBanner}>
+      <div className="scale-in" style={styles.successBanner}>
         <div style={styles.checkmarkWrap}>
           <svg style={styles.checkmarkSvg} viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg">
             <circle style={styles.checkmarkCircle} cx="26" cy="26" r="25" fill="none" />
@@ -95,7 +96,7 @@ const OrderConfirmPage = () => {
         </div>
       </div>
 
-      <div style={styles.layout}>
+      <div className="fade-in-up" style={styles.layout}>
         <div style={styles.details}>
           <div style={styles.card}>
             <h3 style={styles.cardTitle}><FiPackage size={18} /> Order Status</h3>
@@ -123,7 +124,7 @@ const OrderConfirmPage = () => {
           </div>
         </div>
 
-        <div style={styles.itemsCard}>
+        <div className="fade-in-up" style={styles.itemsCard}>
           <h3 style={styles.cardTitle}><FiPackage size={18} /> Items Ordered ({order.items?.length || 0})</h3>
           <div style={styles.itemsList}>
             {order.items?.map((item, idx) => {
@@ -143,7 +144,7 @@ const OrderConfirmPage = () => {
         </div>
       </div>
 
-      <div style={styles.actions}>
+      <div className="fade-in-up" style={styles.actions}>
         <Link to="/my-orders" className="btn-primary" style={styles.actionBtn}>
           <FiPackage size={16} /> Track My Orders
         </Link>

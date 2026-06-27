@@ -1,10 +1,9 @@
-import axiosInstance from './axiosInstance';
+import api from './fetchInstance';
 
-const sellerAPI = {
-  getStats: () => axiosInstance.get('/seller/stats').then((res) => res.data),
-  getProducts: (params) => axiosInstance.get('/seller/products', { params }).then((res) => res.data),
-  getOrders: (params) => axiosInstance.get('/seller/orders', { params }).then((res) => res.data),
-  updateOrderStatus: (id, status) => axiosInstance.patch(`/seller/orders/${id}/status`, { status }).then((res) => res.data),
-};
+export const getStats = () => api.get('/seller/stats');
+export const getProducts = (params) => api.get('/seller/products', { params });
+export const getOrders = (params) => api.get('/seller/orders', { params });
+export const updateOrderStatus = (id, status) => api.patch(`/seller/orders/${id}/status`, { status });
 
+const sellerAPI = { getStats, getProducts, getOrders, updateOrderStatus };
 export default sellerAPI;

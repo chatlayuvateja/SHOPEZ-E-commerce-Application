@@ -1,39 +1,49 @@
-const mongoose = require('mongoose');
+const { ObjectId } = require('mongodb');
+const { getDB } = require('../config/db');
 
-const cartItemSchema = new mongoose.Schema({
-  product: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Product',
-    required: [true, 'Cart item must reference a product'],
-  },
-  quantity: {
-    type: Number,
-    required: [true, 'Quantity is required'],
-    min: [1, 'Quantity must be at least 1'],
-    default: 1,
-  },
-  priceAtAdd: {
-    type: Number,
-    required: [true, 'Price at time of add is required'],
-  },
-});
+const collectionName = 'carts';
 
-const cartSchema = new mongoose.Schema({
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: [true, 'Cart must belong to a user'],
-    unique: true,
-  },
-  items: [cartItemSchema],
-  updatedAt: {
-    type: Date,
-    default: Date.now,
-  },
-});
+const Cart = {
+  collectionName,
 
-cartSchema.pre('save', function () {
-  this.updatedAt = Date.now();
-});
+  async initCollection(db) {
+    const collections = await db.listCollections({ name: collectionName }).toArray();
+    if (collections.length === 0) {
+      await db.createCollection(collectionName);
+      const col = db.collection(collectionName);
+      await col.createIndex({ user: 1 }, { unique: true });
+    }
+  },
 
-module.exports = mongoose.model('Cart', cartSchema);
+  async findOne(filter) {
+    const db = getDB();
+    return db.collection(collectionName).findOne(filter);
+  },
+
+  async findOneAndUpdate(filter, update, options = {}) {
+    const db = getDB();
+    return db.collection(collectionName).findOneAndUpdate(filter, update, { returnDocument: 'after', ...options });
+  },
+
+  async create(cartData) {
+    const db = getDB();
+    const cart = {
+      user: new ObjectId(cartData.user),
+      items: (cartData.items || []).map((item) => ({
+        product: new ObjectId(item.product),
+        quantity: item.quantity || 1,
+        priceAtAdd: item.priceAtAdd || 0,
+      })),
+      updatedAt: new Date(),
+    };
+    const result = await db.collection(collectionName).insertOne(cart);
+    return { ...cart, _id: result.insertedId };
+  },
+
+  async deleteMany(filter) {
+    const db = getDB();
+    return db.collection(collectionName).deleteMany(filter);
+  },
+};
+
+module.exports = Cart;

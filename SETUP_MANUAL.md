@@ -29,7 +29,8 @@
    - [7.1 What is Seeding?](#71-what-is-seeding)
    - [7.2 Running the Seeder](#72-running-the-seeder)
    - [7.3 Understanding the Seed Data](#73-understanding-the-seed-data)
-   - [7.4 Destroying All Data](#74-destroying-all-data)
+    - [7.4 Destroying All Data](#74-destroying-all-data)
+    - [7.5 Product Images Seeding](#75-product-images-seeding)
 8. [First-Time Login & Navigation Walkthrough](#8-first-time-login--navigation-walkthrough)
    - [8.1 Opening the Application](#81-opening-the-application)
    - [8.2 Logging in as a Customer](#82-logging-in-as-a-customer)
@@ -60,12 +61,21 @@
 
 ## 1. Introduction
 
-ShopEZ is a **production-grade e-commerce platform** built using the MERN stack:
+ShopEZ is a **production-grade e-commerce platform** built using only core web technologies:
 
 - **M**ongoDB — document database for storing users, products, orders, reviews, and carts
 - **E**xpress.js — web framework for Node.js that handles HTTP requests and API routing
 - **R**eact.js — frontend library for building interactive user interfaces
 - **N**ode.js — JavaScript runtime that runs the backend server
+
+**Zero external dependencies for critical functionality.** The project uses custom-built implementations for all non-trivial operations:
+- **Custom JWT** (`utils/jwt.js`) — token signing, verification, and cookie management using Node.js built-in `crypto` module (no `jsonwebtoken` package)
+- **Custom password hashing** (`models/User.js`) — using Node.js built-in `crypto.scrypt` (no `bcryptjs` package)
+- **Custom CORS** (`utils/cors.js`) — cross-origin request handling (no `cors` package)
+- **Custom cookie parsing** (`utils/cookies.js`) — HTTP cookie parsing (no `cookie-parser` package)
+- **Custom input validation** (`utils/validate.js`) — request body validation (no `express-validator` package)
+- **Custom env loading** (`utils/env.js`) — environment variable loading (no `dotenv` package)
+- **Raw MongoDB driver** — all database operations use the official `mongodb` driver directly (no Mongoose ORM)
 
 The platform supports three types of users:
 - **Customers** who can browse products, add items to a cart, place orders, and write reviews
@@ -355,16 +365,19 @@ Once you have the project files, open the `shopez` folder. You should see the fo
 
 ```
 shopez/
-├── backend/          ← All server-side code
-├── frontend/         ← All client-side (browser) code
-├── .gitignore        ← Tells Git which files to ignore
-└── README.md         ← Project documentation
+├── backend/           ← All server-side code
+├── frontend/          ← All client-side (browser) code
+├── imageseeder.js     ← Script to populate products with real product photography
+├── .gitignore         ← Tells Git which files to ignore
+├── SETUP_MANUAL.md    ← This setup guide
+└── README.md          ← Project documentation
 ```
 
 Take a moment to open each folder and familiarize yourself with the layout:
 
-- **`backend/`** contains: `config/`, `controllers/`, `middleware/`, `models/`, `routes/`, `utils/`, `server.js`, `app.js`, `seeder.js`, `package.json`, and `.env.example`.
+- **`backend/`** contains: `config/`, `controllers/`, `middleware/`, `models/`, `routes/`, `utils/`, `server.js`, `app.js`, `seeder.js`, `seedData.js`, `package.json`, and `.env.example`.
 - **`frontend/`** contains: `public/`, `src/`, `package.json`, and `.env.example`.
+- **`imageseeder.js`** — a standalone script at the project root that updates product images with real product photography from the `images.price.tools` CDN.
 
 ---
 
@@ -399,15 +412,28 @@ npm install
 3. All packages are placed inside a folder called `node_modules/`.
 4. It creates a file called `package-lock.json` that locks the exact version of each package.
 
+**What gets installed:**
+
+The backend has only two runtime dependencies:
+
+| Package                   | Purpose                                                   |
+|---------------------------|-----------------------------------------------------------|
+| `express`                 | HTTP web framework for routing and middleware              |
+| `mongodb`                 | Official MongoDB driver for database operations            |
+| `mongodb-memory-server`   | In-memory MongoDB fallback (if local MongoDB unavailable)  |
+
+Plus one development dependency:
+| Package    | Purpose                                              |
+|------------|------------------------------------------------------|
+| `nodemon`  | Auto-restarts the server when code changes            |
+
+All other functionality — JWT authentication, password hashing, CORS, cookie parsing, input validation, environment loading — is implemented using **Node.js built-in modules only** (no third-party packages).
+
 **Expected output:**
 
-You will see a progress indicator showing the download progress. Once complete, you should see something like:
-
 ```
-added 450 packages in 30s
+added 120 packages in 30s
 ```
-
-The exact number of packages may vary depending on the current versions.
 
 **Troubleshooting:**
 
@@ -428,8 +454,8 @@ The project includes a template file called `.env.example` that shows all the re
 | `MONGO_URI`          | The connection string for MongoDB. Format: `mongodb://host:port/database` |
 | `JWT_SECRET`         | A secret key used to sign access tokens. **Must be kept private.**      |
 | `JWT_REFRESH_SECRET` | A secret key used to sign refresh tokens. **Must be kept private.**     |
-| `JWT_EXPIRES_IN`     | How long access tokens are valid. Format: `15m` (15 minutes).           |
-| `JWT_REFRESH_EXPIRES_IN` | How long refresh tokens are valid. Format: `7d` (7 days).         |
+| `JWT_EXPIRES_IN`     | Access token lifetime in **seconds**. Default: `900` (15 minutes).      |
+| `JWT_REFRESH_EXPIRES_IN` | Refresh token lifetime in **seconds**. Default: `604800` (7 days). |
 | `NODE_ENV`           | The environment mode. `development` enables detailed error messages.    |
 | `CLIENT_URL`         | The URL of the frontend application (for CORS). Default: `http://localhost:3000` |
 
@@ -479,11 +505,11 @@ nano .env
 
 ```env
 PORT=5000
-MONGO_URI=mongodb://localhost:27017/shopez
+MONGO_URI=mongodb://127.0.0.1:27017/shopez
 JWT_SECRET=your_jwt_secret_here_change_in_production
 JWT_REFRESH_SECRET=your_refresh_secret_here_change_in_production
-JWT_EXPIRES_IN=15m
-JWT_REFRESH_EXPIRES_IN=7d
+JWT_EXPIRES_IN=900
+JWT_REFRESH_EXPIRES_IN=604800
 NODE_ENV=development
 CLIENT_URL=http://localhost:3000
 ```
@@ -557,10 +583,11 @@ MongoDB Connected: localhost
 
 **What happens behind the scenes:**
 
-1. `app.js` loads the `.env` file using the dotenv package.
-2. `server.js` calls `connectDB()` which connects to MongoDB using Mongoose.
-3. Once connected, it starts the Express HTTP server on the specified port (5000).
-4. The server is now ready to accept API requests.
+1. `app.js` loads the `.env` file using the custom `utils/env.js` (uses Node.js built-in `fs` module — no `dotenv` package).
+2. `server.js` calls `connectDB()` from `config/db.js` which connects to MongoDB using the native `mongodb` driver. If the local MongoDB is unavailable, it automatically falls back to an in-memory MongoDB instance (`mongodb-memory-server`) for development.
+3. If the database is empty, `server.js` calls `seedData.js` to auto-populate it with 71 products, 10 users, reviews, orders, and carts.
+4. Once connected and seeded, it starts the Express HTTP server on the specified port (5000).
+5. The server is now ready to accept API requests.
 
 **To verify the server is running:**
 
@@ -598,7 +625,7 @@ Run:
 npm install
 ```
 
-This will download and install all packages listed in `frontend/package.json`, including React, React Router, Chart.js, react-icons, and others.
+This will download and install all packages listed in `frontend/package.json`. The frontend uses only React and its core ecosystem: `react`, `react-dom`, `axios` for HTTP requests, and `react-scripts` (Create React App) for the build toolchain. No UI component libraries, icon libraries, or animation libraries are used — all styling is custom CSS, and icons are hand-crafted SVG components.
 
 **Expected output:**
 
@@ -643,10 +670,10 @@ This tells the frontend that the backend API is available at `http://localhost:5
 
 In a typical Create React App setup, the frontend runs on port 3000 and the backend on port 5000. When the frontend needs to call the API, it sends requests to `http://localhost:5000/api/...`.
 
-The `axiosInstance.js` file in `src/api/` reads the API URL from the environment variable:
+The `fetchInstance.js` file in `src/api/` reads the API URL from the environment variable and creates an Axios instance:
 
 ```javascript
-const axiosInstance = axios.create({
+const api = axios.create({
   baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
   withCredentials: true,
 });
@@ -700,48 +727,62 @@ Press `Ctrl + C` in the terminal where the frontend is running.
 
 Seeding is the process of populating a database with initial, realistic data so you can test and explore the application without having to manually create users, products, and orders.
 
-The ShopEZ seeder (`backend/seeder.js`) creates:
+The ShopEZ seeder creates a comprehensive dataset with **71 products** across **12 categories**:
 
-- **6 users** — 1 admin, 2 sellers, 3 customers
-- **12 products** — 6 electronics from "TechZone India" and 6 clothing items from "StyleHub"
-- **24 reviews** — 2 reviews per product with ratings and comments
-- **3 orders** — Sample orders placed by the "Ojas Tester" customer
-- **6 carts** — Empty shopping carts for each user
+- **10 users** — 1 admin, 6 sellers, 3 customers
+- **71 products** — covering Electronics (12), Clothing (12), Home & Kitchen (10), Books (8), Sports (6), Beauty (6), Toys & Games (4), Automotive (3), Health (3), Groceries (3), Jewelry (2), and Music (2)
+- **30 reviews** — spread across products with ratings and comments
+- **1 sample order** — placed by the "Ojas Tester" customer
+- **10 carts** — Empty shopping carts for each user
 
 ### 7.2 Running the Seeder
 
-**Prerequisite:** MongoDB must be running (see Section 5.5).
+**There are two ways the database gets seeded:**
 
-**Step 1:** Navigate to the backend directory (if not already there):
+**Method A: Automatic (on server start)**
+When you start the backend with `npm run dev` or `npm start`, the server checks if the database is empty. If it is, it automatically runs `seedData.js` to populate everything. The output looks like:
 
+```
+MongoDB Connected: localhost
+Database is empty. Auto-seeding...
+Creating 10 users...
+Creating 71 products...
+Creating 30 reviews...
+Creating 1 sample order...
+Creating 10 carts...
+Auto-seeding complete!
+ShopEZ Server running in development mode on port 5000
+```
+
+**Method B: Manual (using seeder script)**
+If you need to reset the database at any time, manually run the seeder:
+
+**Step 1:** Navigate to the backend directory:
 ```bash
 cd path/to/shopez/backend
 ```
 
 **Step 2:** Run the seed command:
-
 ```bash
 npm run seed
 ```
 
-This command executes `node seeder.js --import`.
+This executes `node seeder.js --import`.
 
-**What you will see:**
-
+**Expected output:**
 ```
 MongoDB Connected: localhost
 Data destroyed.
 Creating users...
-  6 users created
+  10 users created
 Creating products...
-  12 products created
+  71 products created
 Creating reviews...
-  24 reviews created
+  30 reviews created
 Creating orders...
-  3 orders created
+  1 order created
 Creating carts...
-  6 carts created
-
+  10 carts created
 Seeding complete!
 ```
 
@@ -749,44 +790,49 @@ Seeding complete!
 
 1. The script connects to MongoDB using the `MONGO_URI` from your `.env` file.
 2. It **destroys all existing data** first to ensure a clean state.
-3. It hashes passwords for all 6 users using bcrypt (with 12 salt rounds — this is computationally intensive and may take a few seconds).
-4. It creates all 6 users in the database.
-5. It creates 12 products, each linked to their respective seller.
-6. It creates 24 reviews, linking them to the correct user and product.
-7. It creates 3 sample orders with the proper structure (items, prices, shipping address, etc.).
+3. It hashes passwords for all 10 users using Node.js built-in `crypto.scrypt` (this is computationally intensive and may take a few seconds).
+4. It creates all 10 users in the database.
+5. It creates 71 products across 12 categories, each linked to their respective seller.
+6. It creates 30 reviews, linking them to the correct user and product.
+7. It creates 1 sample order with the proper structure (items, prices, shipping address, etc.).
 8. It creates an empty cart for each user.
 9. It disconnects from MongoDB and exits.
+
+**Note:** The seeder uses raw MongoDB operations through the native `mongodb` driver. It does NOT use Mongoose ORM or the `bcryptjs` package — password hashing is done with Node.js built-in `crypto.scrypt`.
 
 ### 7.3 Understanding the Seed Data
 
 **Users created:**
 
-| Name            | Email                 | Password   | Role    |
-|-----------------|-----------------------|------------|---------|
-| ShopEZ Admin    | admin@shopez.com      | Admin@123  | ADMIN   |
-| TechZone India  | seller1@shopez.com    | Seller@123 | SELLER  |
-| StyleHub        | seller2@shopez.com    | Seller@123 | SELLER  |
-| Ojas Tester     | user@shopez.com       | User@123   | USER    |
-| Priya Sharma    | priya@example.com     | User@123   | USER    |
-| Arun Kumar      | arun@example.com      | User@123   | USER    |
+| Name                | Email                 | Password   | Role    |
+|---------------------|-----------------------|------------|---------|
+| ShopEZ Admin        | admin@shopez.com      | Admin@123  | ADMIN   |
+| TechZone India      | seller1@shopez.com    | Seller@123 | SELLER  |
+| StyleHub            | seller2@shopez.com    | Seller@123 | SELLER  |
+| Home Essentials Co. | seller3@shopez.com    | Seller@123 | SELLER  |
+| BookWorm Publishers | seller4@shopez.com    | Seller@123 | SELLER  |
+| SportFit India      | seller5@shopez.com    | Seller@123 | SELLER  |
+| Glamour Beauty      | seller6@shopez.com    | Seller@123 | SELLER  |
+| Ojas Tester         | user@shopez.com       | User@123   | USER    |
+| Priya Sharma        | priya@example.com     | User@123   | USER    |
+| Arun Kumar          | arun@example.com      | User@123   | USER    |
 
-**Products created (by seller):**
+**Products (71 total across 12 categories):**
 
-**TechZone India (Electronics):**
-1. Samsung Galaxy M34 5G — ₹18,999 (15% off → ₹16,149.15)
-2. boAt Airdopes 141 Earbuds — ₹1,499 (20% off → ₹1,199.20)
-3. Logitech MK235 Keyboard+Mouse Combo — ₹1,695 (10% off → ₹1,525.50)
-4. Mi 80cm (32) Smart TV — ₹15,999 (8% off → ₹14,719.08)
-5. HP 15s Laptop — ₹45,990 (5% off → ₹43,690.50)
-6. Realme Narzo 60 5G — ₹14,999 (12% off → ₹13,199.12)
-
-**StyleHub (Clothing):**
-1. Men's Classic Polo T-Shirt — ₹799 (30% off → ₹559.30)
-2. Women's Kurti Set — ₹1,299 (25% off → ₹974.25)
-3. Levi's 511 Slim Fit Jeans — ₹2,999 (20% off → ₹2,399.20)
-4. Sports Running Shoes — ₹1,899 (15% off → ₹1,614.15)
-5. Formal Blazer for Men — ₹3,499 (10% off → ₹3,149.10)
-6. Floral Maxi Dress — ₹1,599 (35% off → ₹1,039.35)
+| Seller               | Category        | Products                                                                 |
+|----------------------|-----------------|--------------------------------------------------------------------------|
+| TechZone India       | Electronics     | 12 products: phones, laptops, headphones, camera, smartwatch, speaker, TV, iPad, keyboard combo |
+| TechZone India       | Music           | 2 products: Acoustic Guitar, Bluetooth Turntable                         |
+| StyleHub             | Clothing        | 12 products: polo shirts, kurtis, jeans, shoes, blazers, dresses, sweaters, jackets, gowns, wallets, sunglasses, belts |
+| StyleHub             | Jewelry         | 2 products: Silver Necklace, Pearl Stud Earrings                         |
+| StyleHub             | Toys & Games    | 4 products: LEGO Millennium Falcon, RC Car, Board Game Set, Science Kit  |
+| Home Essentials Co.  | Home & Kitchen  | 10 products: cookware set, candles, bed sheets, air fryer, desk lamp, stand mixer, wall clock, cutting boards, coffee maker, robot vacuum |
+| Home Essentials Co.  | Automotive      | 3 products: Dash Camera, Seat Covers, Tire Inflator                      |
+| Home Essentials Co.  | Groceries       | 3 products: Green Tea Collection, Dry Fruits Gift Box, Organic Honey     |
+| BookWorm Publishers  | Books           | 8 products: Atomic Habits, The Alchemist, Rich Dad Poor Dad, Lean Startup, Sapiens, Psychology of Money, Great Gatsby, Thinking Fast & Slow |
+| SportFit India       | Sports          | 6 products: Yoga Mat, Dumbbell Set, Mountain Bike, Swimming Goggles, Tennis Racket, Fitness Tracker |
+| Glamour Beauty       | Beauty          | 6 products: Vitamin C Serum, Face Moisturizer, Perfume Collection, Hair Dryer, Lipstick Set, Hair Growth Oil |
+| Glamour Beauty       | Health          | 3 products: BP Monitor, Multivitamin Tablets, Ergonomic Office Chair     |
 
 ### 7.4 Destroying All Data
 
@@ -808,6 +854,40 @@ Are you sure? Type 'yes' to confirm:
 You must type `yes` and press Enter to proceed. Any other input will cancel the operation.
 
 After running `--destroy`, you can run `npm run seed` again to repopulate the database with fresh data.
+
+### 7.5 Product Images Seeding
+
+By default, the seeder assigns placeholder images (from `picsum.photos`) to all products. To replace these with **real product photography**, run the image seeder script:
+
+```bash
+# From the project root directory (shopez/)
+node imageseeder.js
+```
+
+**What this does:**
+
+1. Connects to the same MongoDB database.
+2. For each of the 52 supported products, it updates the image array with real product photographs sourced from the `images.price.tools` CDN (used by pricehistory.app).
+3. Products that do not have matching images on the CDN (e.g., books, some clothing items) retain their original placeholder images.
+
+**Expected output:**
+
+```
+samsung-galaxy-m34-5g: UPDATED
+boat-airdopes-141-earbuds: UPDATED
+...
+Done! Updated 52/52 products.
+```
+
+**Important:** Run this only once after seeding. Re-running it on an already-updated database will show "not found" for already-updated products (this is expected — the script reports `modifiedCount` which is 0 if the images are already set to the same URLs).
+
+**Image source:** The `images.price.tools` CDN hosts real manufacturer/product images indexed by pricehistory.app. Each image URL follows this pattern:
+
+```
+https://images.price.tools/images/{product-description}-{size}-{8charhash}.jpg
+```
+
+Where `{size}` is `l` (large), `m` (medium), or `s` (small), and `{8charhash}` is a random 8-character hash.
 
 ---
 
@@ -993,11 +1073,15 @@ This section diagnoses and resolves the most common problems you may encounter.
 
 **Error message:**
 ```
-MongoDB Connection Error: MongooseServerSelectionError: connect ECONNREFUSED ::1:27017
+MongoDB Connection Error: connect ECONNREFUSED ::1:27017
 ```
 **or**
 ```
 MongoDB Connection Error: connect ECONNREFUSED 127.0.0.1:27017
+```
+**or**
+```
+Local MongoDB not available, starting in-memory MongoDB...
 ```
 
 **Cause:** MongoDB is not running on your machine, or it is running on a different port.
@@ -1135,9 +1219,10 @@ Access to XMLHttpRequest at 'http://localhost:5000/api/...' from origin 'http://
 
 3. **Check if the backend is running.** Run `npm run dev` in the backend directory.
 
-4. **Verify the backend logs** show `development mode`. CORS is configured in `app.js`:
+4. **Verify the backend logs** show `development mode`. CORS is configured in `app.js` using the custom `utils/cors.js` middleware (no third-party CORS package):
    ```javascript
-   app.use(cors({
+   const { corsMiddleware } = require('./utils/cors');
+   app.use(corsMiddleware({
      origin: process.env.CLIENT_URL,
      credentials: true,
    }));
@@ -1193,13 +1278,13 @@ Access to XMLHttpRequest at 'http://localhost:5000/api/...' from origin 'http://
 
 ### 10.7 Database Seeding Fails
 
-**Error message:**
+**Error messages:**
 ```
-Seeding failed: ValidationError: Product validation failed: ...
+MongoDB Connection Error: ...
 ```
 **or**
 ```
-MongoDB Connection Error: ...
+MongoBulkWriteError: E11000 duplicate key error collection: ...
 ```
 
 **Solutions:**
@@ -1208,9 +1293,9 @@ MongoDB Connection Error: ...
 
 2. **Check the `.env` file** — make sure `MONGO_URI` is correct.
 
-3. **If validation errors occur during seeding:**
-   - The seeder data may not match the model schema exactly. Check the model files (`backend/models/`) for required fields, enums, and validators.
-   - Ensure category names match exactly (e.g., "Electronics" not "electronics" — the Product model uses capitalized categories).
+3. **If MongoDB schema validation errors occur during seeding:**
+   - The seeder data may not match the model's `$jsonSchema` validator. Check the model files (`backend/models/`) for required fields and enum values.
+   - Ensure category names match exactly (e.g., "Electronics" not "electronics").
 
 4. **Run the destroy command first** to ensure a clean slate:
    ```bash
@@ -1220,7 +1305,11 @@ MongoDB Connection Error: ...
 
 5. **Check for duplicate key errors:**
    - If you run the seeder twice without destroying first, you'll get duplicate email/slug errors because of unique indexes.
-   - Always run `--destroy` before `--import`, or the seeder will handle this automatically (it destroys data before importing).
+   - The seeder automatically destroys data before importing, but manual `npm run seed:destroy` ensures a completely clean state.
+
+6. **If the auto-seed fails on server start:**
+   - The server's auto-seed function (`seedData.js`) is only triggered when the database has zero users.
+   - If partial data exists, delete all collections manually via `mongosh` and restart the server.
 
 ### 10.8 Cookie Not Set / Not Sent
 
@@ -1228,9 +1317,9 @@ MongoDB Connection Error: ...
 
 **Solutions:**
 
-1. **Ensure `withCredentials: true`** is set in the API request. This is configured in `axiosInstance.js`:
+1. **Ensure `withCredentials: true`** is set in the API request. This is configured in `fetchInstance.js`:
    ```javascript
-   const axiosInstance = axios.create({
+   const api = axios.create({
      baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
      withCredentials: true,
    });
@@ -1249,9 +1338,10 @@ MongoDB Connection Error: ...
    - Correct: `http://localhost:3000`
    - Incorrect: `http://localhost:3000/`
 
-4. **Check the cookie settings in the backend** (`tokenUtils.js` or `authController.js`):
-   - The cookie should have `httpOnly: true`, `secure: false` (for development over HTTP), and `sameSite: 'lax'` or `'strict'`.
-   - For local development, `secure: true` will prevent cookies from being sent over HTTP. It should be `secure: false` or conditional on `NODE_ENV === 'production'`.
+4. **Check the cookie settings in the backend** (`utils/jwt.js`):
+   - The cookie is set via `Set-Cookie` headers directly in the `sendTokenResponse` function.
+   - It uses `httpOnly: true`, `secure: false` (for development over HTTP), and `sameSite: 'Strict'`.
+   - For local development, `secure: true` would prevent cookies from being sent over HTTP. The code conditionally sets `Secure` only when `NODE_ENV === 'production'`.
 
 5. **Restart the backend** after making any changes to CORS or cookie settings.
 
@@ -1273,10 +1363,10 @@ Request → Router → Middleware → Controller → Model → MongoDB
 - Routes the request to the appropriate controller function.
 
 **Layer 2: Middleware (`middleware/`)**
-- **Authentication Middleware:** Verifies the JWT in the cookie and attaches the user to the request.
+- **Authentication Middleware:** Verifies the JWT in the cookie using the custom `utils/jwt.js` (Node.js built-in `crypto` module, no `jsonwebtoken` package) and attaches the user to the request.
 - **Authorization Middleware:** Checks if the authenticated user has the required role (USER, SELLER, ADMIN).
-- **Validation Middleware:** Validates request body data using express-validator.
-- **Error Middleware:** Catches all errors and sends a standardized error response.
+- **Validation Middleware:** Validates request body data using custom `utils/validate.js` (no `express-validator` package).
+- **Error Middleware:** Catches all errors and sends a standardized error response using `AppError` class.
 - **Not Found Middleware:** Catches requests to undefined routes.
 
 **Layer 3: Controller (`controllers/`)**
@@ -1286,21 +1376,26 @@ Request → Router → Middleware → Controller → Model → MongoDB
 - Uses `catchAsync` to automatically catch and forward errors to the error middleware.
 
 **Layer 4: Model (`models/`)**
-- Defines the Mongoose schema for each collection (User, Product, Order, Review, Cart).
-- Contains validation rules, default values, virtual properties (e.g., `finalPrice` on Product).
-- Contains middleware hooks (e.g., password hashing before saving a User, calculating average ratings after saving a Review).
+- Defines the MongoDB collection schema and operations for each entity (User, Product, Order, Review, Cart).
+- Uses **raw MongoDB driver operations** (no Mongoose ORM). Each model file exports an object with methods like `findById`, `create`, `updateOne`, etc., all using the native `mongodb` driver.
+- Schema validation is enforced via MongoDB's `$jsonSchema` validator (e.g., User model validates email format and password length at the database level).
+- Contains business logic hooks (e.g., password hashing via Node.js built-in `crypto.scrypt` before creating a User, calculating average ratings after saving a Review).
 
 **Key files:**
 
 | File                   | Purpose                                                    |
 |------------------------|------------------------------------------------------------|
-| `server.js`            | Entry point — connects to DB and starts the HTTP server.   |
-| `app.js`               | Express application setup — middleware stack and route mounting. |
+| `server.js`            | Entry point — connects to DB, auto-seeds if empty, starts the HTTP server. |
+| `app.js`               | Express application setup — custom middleware stack and route mounting. |
 | `seeder.js`            | Standalone script to populate the database with sample data. |
-| `config/db.js`         | MongoDB connection function using Mongoose.                |
-| `utils/tokenUtils.js`  | JWT signing, verification, and cookie helper functions.    |
+| `seedData.js`          | Auto-seed function called by `server.js` when the database is empty. |
+| `config/db.js`         | MongoDB connection function using native `mongodb` driver + in-memory fallback. |
+| `utils/jwt.js`         | Custom JWT signing, verification using Node.js `crypto` module (no jsonwebtoken). |
 | `utils/AppError.js`    | Custom error class for operational (expected) errors.      |
-| `utils/catchAsync.js`  | Wrapper to catch async errors in route handlers.           |
+| `utils/cors.js`        | Custom CORS middleware (no third-party cors package).       |
+| `utils/cookies.js`     | Custom cookie parsing (no cookie-parser package).           |
+| `utils/env.js`         | Custom .env file loading (no dotenv package).              |
+| `utils/validate.js`    | Custom input validation functions (no express-validator).  |
 
 ### 11.2 Frontend Architecture
 
@@ -1314,10 +1409,15 @@ Browser → App.js → Providers → Router → Layout → Pages → Components
 - **AuthContext:** Manages authentication state (user, isAuthenticated, isLoading). Provides login, register, and logout functions. Hydrates from cookies on initial load.
 - **CartContext:** Manages global cart state (items, itemCount, totalPrice). Uses optimistic updates with debounced API sync.
 
-**Layer 2: Router (React Router v6)**
-- Defined in `App.js`.
-- Maps URL paths to page components.
-- Wraps protected routes with PrivateRoute, SellerRoute, or AdminRoute guards.
+**Layer 2: Custom Router (`src/router/Router.js`)**
+- A custom-built SPA router implemented from scratch using React Context and hooks (no `react-router-dom` dependency — though the package is installed, the app uses its own lightweight router).
+- The router components (`BrowserRouter`, `Routes`, `Route`, `Link`, `Navigate`) are built with basic React primitives:
+  - `BrowserRouter` — wraps the app, provides location state and navigation API via React Context.
+  - `Routes` — iterates over `Route` children, matches the current URL path using a pattern matching function, and renders the matching component.
+  - `Route` — a thin wrapper that holds the `path` and `element` props.
+  - `Link` — renders an `<a>` tag with navigation handled via `ctx.navigate()`.
+  - `Navigate` — a component that imperatively redirects on render via `useEffect`.
+- Route guards (`PrivateRoute`, `SellerRoute`, `AdminRoute`) check authentication state from `AuthContext` and redirect if unauthorized.
 - Implements lazy loading (React.lazy + Suspense) for code splitting.
 
 **Layer 3: Layout (`components/layout/`)**
@@ -1343,7 +1443,7 @@ Browser → App.js → Providers → Router → Layout → Pages → Components
 | `src/App.js`                   | Root component — providers, routers, and lazy-loaded routes. |
 | `src/index.js`                 | ReactDOM entry point.                                     |
 | `src/index.css`                | Global styles, design tokens, keyframes.                  |
-| `src/api/axiosInstance.js`     | Configured Axios instance with cookies and 401 interceptor. |
+| `src/api/fetchInstance.js`     | Configured Axios instance with cookies and 401 interceptor. |
 | `src/context/AuthContext.js`   | Authentication state management and cookie hydration.     |
 | `src/contexts/CartContext.js`  | Global cart state with optimistic updates.                |
 | `src/hooks/useFetch.js`       | Generic data fetching hook with AbortController support.  |
@@ -1419,7 +1519,7 @@ When you are ready to deploy ShopEZ to a production server, follow this checklis
   ```
   Copy the output and use it for both `JWT_SECRET` and `JWT_REFRESH_SECRET` in `.env`.
 - [ ] **Set `NODE_ENV=production`** in the backend `.env`. This disables detailed error messages and morgan logging.
-- [ ] **Enable `secure: true` for cookies** in the backend. The `tokenUtils.js` should set `secure: true` in production so cookies are only sent over HTTPS.
+- [ ] **Enable `secure: true` for cookies** in the backend. The `utils/jwt.js` `sendTokenResponse` function conditionally sets `Secure` based on `NODE_ENV`. In production, ensure cookies are only sent over HTTPS.
 - [ ] **Update CORS origin** — set `CLIENT_URL` to your actual production frontend domain.
 - [ ] **Remove `nodemon`** from production dependencies. Run `npm install --production` to install only production dependencies.
 - [ ] **Use HTTPS.** Set up SSL/TLS certificates using Let's Encrypt or your hosting provider.
@@ -1452,7 +1552,7 @@ When you are ready to deploy ShopEZ to a production server, follow this checklis
 
 - [ ] **Set up automated backups** using `mongodump` or a cloud backup service.
 - [ ] **Create a database user with limited permissions** — never use the root MongoDB user.
-- [ ] **Run database indexes** — ensure all MongoDB indexes are created (they are defined in the Mongoose schemas).
+- [ ] **Run database indexes** — ensure all MongoDB indexes are created. Indexes are defined in each model's `initCollection()` method and are created automatically when the server starts.
 
 ### Monitoring
 
@@ -1466,14 +1566,18 @@ When you are ready to deploy ShopEZ to a production server, follow this checklis
 
 > ⚠️ **WARNING:** These credentials are for **development and testing only**. Change ALL passwords before deploying to production.
 
-| Role     | Name            | Email                 | Password    | Can Access               |
-|----------|-----------------|-----------------------|-------------|--------------------------|
-| ADMIN    | ShopEZ Admin    | admin@shopez.com      | Admin@123   | Everything                |
-| SELLER   | TechZone India  | seller1@shopez.com    | Seller@123  | Seller Dashboard          |
-| SELLER   | StyleHub        | seller2@shopez.com    | Seller@123  | Seller Dashboard          |
-| USER     | Ojas Tester     | user@shopez.com       | User@123    | Shopping, My Orders       |
-| USER     | Priya Sharma    | priya@example.com     | User@123    | Shopping, My Orders       |
-| USER     | Arun Kumar      | arun@example.com      | User@123    | Shopping, My Orders       |
+| Role     | Name                | Email                 | Password    | Can Access               |
+|----------|---------------------|-----------------------|-------------|--------------------------|
+| ADMIN    | ShopEZ Admin        | admin@shopez.com      | Admin@123   | Everything                |
+| SELLER   | TechZone India      | seller1@shopez.com    | Seller@123  | Seller Dashboard          |
+| SELLER   | StyleHub            | seller2@shopez.com    | Seller@123  | Seller Dashboard          |
+| SELLER   | Home Essentials Co. | seller3@shopez.com    | Seller@123  | Seller Dashboard          |
+| SELLER   | BookWorm Publishers | seller4@shopez.com    | Seller@123  | Seller Dashboard          |
+| SELLER   | SportFit India      | seller5@shopez.com    | Seller@123  | Seller Dashboard          |
+| SELLER   | Glamour Beauty      | seller6@shopez.com    | Seller@123  | Seller Dashboard          |
+| USER     | Ojas Tester         | user@shopez.com       | User@123    | Shopping, My Orders       |
+| USER     | Priya Sharma        | priya@example.com     | User@123    | Shopping, My Orders       |
+| USER     | Arun Kumar          | arun@example.com      | User@123    | Shopping, My Orders       |
 
 ---
 
@@ -1507,10 +1611,10 @@ When you are ready to deploy ShopEZ to a production server, follow this checklis
 | Method | Endpoint                          | Auth Required | Role Required | Description                            |
 |--------|-----------------------------------|---------------|---------------|----------------------------------------|
 | GET    | `/api/cart`                       | Yes           | —             | Get the current user's cart            |
-| POST   | `/api/cart`                       | Yes           | —             | Add an item to the cart                |
-| PATCH  | `/api/cart/:productId`            | Yes           | —             | Update the quantity of a cart item     |
-| DELETE | `/api/cart/:productId`            | Yes           | —             | Remove an item from the cart           |
-| DELETE | `/api/cart`                       | Yes           | —             | Clear all items from the cart          |
+| POST   | `/api/cart/add`                   | Yes           | —             | Add an item to the cart                |
+| PATCH  | `/api/cart/update`                | Yes           | —             | Update the quantity of a cart item     |
+| DELETE | `/api/cart/remove/:productId`     | Yes           | —             | Remove an item from the cart           |
+| DELETE | `/api/cart/clear`                 | Yes           | —             | Clear all items from the cart          |
 
 ### Orders
 

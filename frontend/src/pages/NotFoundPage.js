@@ -1,35 +1,17 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { FiHome, FiSearch } from 'react-icons/fi';
+import { Link } from '../router/Router';
+import { FiHome, FiSearch } from '../utils/Icons';
 
 const NotFoundPage = () => {
   return (
     <div style={styles.page}>
-      <motion.div
-        style={styles.container}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
+      <div className="fade-in-up" style={styles.container}>
         <div style={styles.illustration}>
-          <motion.div
-            style={styles.shape404}
-            animate={{ rotate: [0, 5, -5, 0] }}
-            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-          >
+          <div className="float-animation" style={styles.shape404}>
             <span style={styles.shapeText}>404</span>
-          </motion.div>
-          <motion.div
-            style={styles.shapeCircle1}
-            animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
-            transition={{ duration: 3, repeat: Infinity }}
-          />
-          <motion.div
-            style={styles.shapeCircle2}
-            animate={{ scale: [1, 1.1, 1], opacity: [0.1, 0.2, 0.1] }}
-            transition={{ duration: 4, repeat: Infinity }}
-          />
+          </div>
+          <div className="pulse-animation" style={styles.shapeCircle1} />
+          <div className="pulse-animation" style={styles.shapeCircle2} />
         </div>
         <h1 style={styles.title}>Page Not Found</h1>
         <p style={styles.message}>
@@ -43,7 +25,7 @@ const NotFoundPage = () => {
             <FiSearch size={18} /> Browse Products
           </Link>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 };

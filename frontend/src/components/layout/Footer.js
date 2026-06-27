@@ -1,20 +1,13 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { FiMail, FiPhone, FiMapPin, FiGithub, FiTwitter, FiInstagram } from 'react-icons/fi';
+import { Link } from '../../router/Router';
+import { FiMail, FiPhone, FiMapPin, FiGithub, FiTwitter, FiInstagram } from '../../utils/Icons';
 
 const Footer = () => {
   return (
     <footer style={styles.footer}>
       <div className="container">
         <div style={styles.grid}>
-          <motion.div
-            style={styles.col}
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.4 }}
-          >
+          <div className="fade-in-up" style={styles.col}>
             <h3 style={styles.brand}>
               <span style={styles.logoIcon}>✦</span>
               Shop<span style={styles.accent}>EZ</span>
@@ -28,40 +21,22 @@ const Footer = () => {
               <a href="#!" style={styles.socialLink}><FiTwitter size={18} /></a>
               <a href="#!" style={styles.socialLink}><FiInstagram size={18} /></a>
             </div>
-          </motion.div>
-          <motion.div
-            style={styles.col}
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.4, delay: 0.1 }}
-          >
+          </div>
+          <div className="fade-in-up" style={styles.col}>
             <h4 style={styles.heading}>Quick Links</h4>
             <Link to="/products" style={styles.link}>All Products</Link>
             <Link to="/cart" style={styles.link}>Shopping Cart</Link>
             <Link to="/my-orders" style={styles.link}>My Orders</Link>
-            <Link to="/register" style={styles.link}>Become a Seller</Link>
-          </motion.div>
-          <motion.div
-            style={styles.col}
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.4, delay: 0.2 }}
-          >
+            <Link to="/register" style={styles.link}>Seller Registration</Link>
+          </div>
+          <div className="fade-in-up" style={styles.col}>
             <h4 style={styles.heading}>Support</h4>
             <Link to="#!" style={styles.link}>Help Center</Link>
             <Link to="#!" style={styles.link}>Returns Policy</Link>
             <Link to="#!" style={styles.link}>Shipping Info</Link>
             <Link to="#!" style={styles.link}>FAQs</Link>
-          </motion.div>
-          <motion.div
-            style={styles.col}
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.4, delay: 0.3 }}
-          >
+          </div>
+          <div className="fade-in-up" style={styles.col}>
             <h4 style={styles.heading}>Contact Us</h4>
             <div style={styles.contactItem}>
               <FiMail size={14} style={{ flexShrink: 0 }} />
@@ -75,15 +50,9 @@ const Footer = () => {
               <FiMapPin size={14} style={{ flexShrink: 0 }} />
               <span>123 Commerce St, Suite 100</span>
             </div>
-          </motion.div>
+          </div>
         </div>
-        <motion.div
-          style={styles.bottom}
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.4, delay: 0.4 }}
-        >
+        <div className="fade-in-up" style={styles.bottom}>
           <p style={styles.copyright}>
             &copy; {new Date().getFullYear()} ShopEZ. All rights reserved.
           </p>
@@ -91,7 +60,7 @@ const Footer = () => {
             <Link to="#!" style={styles.bottomLink}>Privacy Policy</Link>
             <Link to="#!" style={styles.bottomLink}>Terms of Service</Link>
           </div>
-        </motion.div>
+        </div>
       </div>
     </footer>
   );

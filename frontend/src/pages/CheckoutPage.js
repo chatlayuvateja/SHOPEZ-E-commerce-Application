@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { FiMapPin, FiCreditCard, FiCheckCircle, FiArrowLeft, FiArrowRight, FiSmartphone, FiDollarSign } from 'react-icons/fi';
+import { useNavigate } from '../router/Router';
+import { FiMapPin, FiCreditCard, FiCheckCircle, FiArrowLeft, FiArrowRight, FiSmartphone, FiDollarSign } from '../utils/Icons';
 import cartAPI from '../api/cartAPI';
 import orderAPI from '../api/orderAPI';
 import useAuth from '../hooks/useAuth';
 import ErrorState from '../components/common/ErrorState';
-import toast from 'react-hot-toast';
+import { useToast } from '../components/common/Toast';
 import { formatINR } from '../utils/formatCurrency';
 import parseAPIError from '../utils/errorParser';
 
@@ -25,6 +25,7 @@ const paymentMethods = [
 const CheckoutPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const showToast = useToast();
   const [cart, setCart] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -146,11 +147,11 @@ const CheckoutPage = () => {
         }),
       };
       const data = await orderAPI.create(orderData);
-      toast.success('Order placed successfully!');
+      showToast('Order placed successfully!', 'success');
       navigate(`/order-confirmation/${data.order._id}`);
     } catch (err) {
       const msg = parseAPIError(err);
-      toast.error(msg);
+      showToast(msg, 'error');
       if (msg.toLowerCase().includes('stock')) {
         fetchCart();
       }
@@ -202,7 +203,7 @@ const CheckoutPage = () => {
       <div style={styles.layout}>
         <div style={styles.formSection}>
           {step === 0 && (
-            <div style={styles.card}>
+            <div className="fade-in-up" style={styles.card}>
               <h3 style={styles.cardTitle}><FiMapPin size={18} /> Delivery Address</h3>
               <div style={styles.grid}>
                 <div style={styles.fieldFull}>
@@ -249,7 +250,7 @@ const CheckoutPage = () => {
           )}
 
           {step === 1 && (
-            <div style={styles.card}>
+            <div className="fade-in-up" style={styles.card}>
               <h3 style={styles.cardTitle}><FiCreditCard size={18} /> Payment Method</h3>
               <div style={styles.paymentOptions}>
                 {paymentMethods.map((pm) => (
@@ -342,7 +343,7 @@ const CheckoutPage = () => {
           )}
 
           {step === 2 && (
-            <div style={styles.card}>
+            <div className="fade-in-up" style={styles.card}>
               <h3 style={styles.cardTitle}><FiCheckCircle size={18} /> Review Your Order</h3>
 
               <div style={styles.reviewSection}>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { FiInbox } from 'react-icons/fi';
+import { FiInbox } from '../../utils/Icons';
 
 const EmptyState = ({ icon: Icon = FiInbox, title = 'Nothing here', message = '', actionLabel, onAction }) => {
   return (

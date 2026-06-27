@@ -1,6 +1,6 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { FiMinus, FiPlus, FiTrash2, FiShoppingBag } from 'react-icons/fi';
+import { Link } from '../router/Router';
+import { FiMinus, FiPlus, FiTrash2, FiShoppingBag } from '../utils/Icons';
 import { useCart } from '../contexts/CartContext';
 import EmptyState from '../components/common/EmptyState';
 import { formatINR } from '../utils/formatCurrency';

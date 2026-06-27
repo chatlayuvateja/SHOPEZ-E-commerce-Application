@@ -1,41 +1,18 @@
-import React, { useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
-import { FiShoppingCart, FiHeart } from 'react-icons/fi';
+import React, { useState } from 'react';
+import { Link, useNavigate } from '../../router/Router';
+import { FiShoppingCart, FiHeart } from '../../utils/Icons';
 import useAuth from '../../hooks/useAuth';
 import { useCart } from '../../contexts/CartContext';
 import StarRating from './StarRating';
-import toast from 'react-hot-toast';
+import { useToast } from '../common/Toast';
 
 const ProductCard = ({ product, index = 0 }) => {
-  const cardRef = useRef(null);
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
+  const isSeller = user?.role === 'SELLER';
   const { addToCart } = useCart();
   const [adding, setAdding] = useState(false);
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-
-  const mouseXSpring = useSpring(x, { stiffness: 300, damping: 30 });
-  const mouseYSpring = useSpring(y, { stiffness: 300, damping: 30 });
-
-  const rotateX = useTransform(mouseYSpring, [-0.5, 0.5], ['8deg', '-8deg']);
-  const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ['-8deg', '8deg']);
-
-  const handleMouseMove = (e) => {
-    const rect = cardRef.current.getBoundingClientRect();
-    const width = rect.width;
-    const height = rect.height;
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-    x.set(mouseX / width - 0.5);
-    y.set(mouseY / height - 0.5);
-  };
-
-  const handleMouseLeave = () => {
-    x.set(0);
-    y.set(0);
-  };
+  const showToast = useToast();
 
   const {
     name, slug, images, price, finalPrice, discountPercent,
@@ -45,34 +22,15 @@ const ProductCard = ({ product, index = 0 }) => {
   const imageUrl = images && images.length > 0 ? images[0].url : 'https://picsum.photos/seed/default/300';
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 30 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay: index * 0.05 }}
-      style={{ perspective: 1000 }}
-    >
+    <div className="fade-in-up" style={{ perspective: 1000 }}>
       <Link to={`/products/${slug}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
-        <motion.div
-          ref={cardRef}
-          onMouseMove={handleMouseMove}
-          onMouseLeave={handleMouseLeave}
-          style={{
-            ...styles.card,
-            rotateX,
-            rotateY,
-            transformStyle: 'preserve-3d',
-          }}
-          whileHover={{ z: 50 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-        >
+        <div style={styles.card}>
           <div style={styles.imageWrap}>
-            <motion.img
+            <img
               src={imageUrl}
               alt={name}
               loading="lazy"
               style={styles.image}
-              whileHover={{ scale: 1.08 }}
-              transition={{ duration: 0.4 }}
             />
             {discountPercent > 0 && (
               <span style={styles.discountBadge}>-{discountPercent}%</span>
@@ -85,11 +43,10 @@ const ProductCard = ({ product, index = 0 }) => {
             {stock > 0 && stock <= 5 && (
               <span style={styles.lowStock}>Only {stock} left</span>
             )}
+            {!isSeller && (
             <div style={styles.addCartOverlay}>
-              <motion.span
+              <span
                 style={styles.addCartBtn}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.97 }}
                 onClick={async (e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -98,26 +55,29 @@ const ProductCard = ({ product, index = 0 }) => {
                     return;
                   }
                   if (product.stock === 0) {
-                    toast.error('Out of stock');
+                    showToast('Out of stock', 'error');
                     return;
                   }
                   setAdding(true);
                   try {
                     await addToCart(product._id, 1);
-                    toast.success('Added to cart!');
+                    showToast('Added to cart!', 'success');
                   } catch (err) {
-                    toast.error('Failed to add to cart');
+                    showToast('Failed to add to cart', 'error');
                   } finally {
                     setAdding(false);
                   }
                 }}
               >
                 {adding ? '...' : <><FiShoppingCart size={16} /> Add to Cart</>}
-              </motion.span>
+              </span>
             </div>
+            )}
+            {!isSeller && (
             <button style={styles.wishlistBtn} onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
               <FiHeart size={16} />
             </button>
+            )}
           </div>
           <div style={styles.content}>
             {brand && <p style={styles.brand}>{brand}</p>}
@@ -134,9 +94,9 @@ const ProductCard = ({ product, index = 0 }) => {
             </div>
           </div>
           <div style={styles.glow} />
-        </motion.div>
+        </div>
       </Link>
-    </motion.div>
+    </div>
   );
 };
 

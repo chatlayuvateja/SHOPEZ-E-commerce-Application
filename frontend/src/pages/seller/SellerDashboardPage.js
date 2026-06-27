@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiPackage, FiShoppingBag, FiDollarSign, FiStar, FiPlus, FiEdit2, FiTrash2, FiToggleLeft } from 'react-icons/fi';
+import { createPortal } from 'react-dom';
+import { FiPackage, FiShoppingBag, FiDollarSign, FiStar, FiPlus, FiEdit2, FiTrash2, FiToggleLeft } from '../../utils/Icons';
 import sellerAPI from '../../api/sellerAPI';
 import productAPI from '../../api/productAPI';
 import Pagination from '../../components/common/Pagination';
-import RevenueChart from '../../components/charts/RevenueChart';
-import OrdersDonutChart from '../../components/charts/OrdersDonutChart';
+import { RevenueTable, OrdersDonutTable } from '../../components/charts/SimpleCharts';
 import OrderStatusBadge from '../../components/orders/OrderStatusBadge';
-import toast from 'react-hot-toast';
+import { useToast } from '../../components/common/Toast';
 import { formatINR } from '../../utils/formatCurrency';
 import { formatDate } from '../../utils/formatDate';
 import parseAPIError from '../../utils/errorParser';
@@ -20,6 +20,7 @@ const STATUS_TRANSITIONS = {
 };
 
 const SellerDashboardPage = () => {
+  const showToast = useToast();
   const [stats, setStats] = useState(null);
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -85,10 +86,47 @@ const SellerDashboardPage = () => {
     setShowDrawer(true);
   };
 
-  const handleImageChange = (idx, value) => {
+  const compressImage = (dataUrl, maxWidth = 800, quality = 0.7) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let w = img.width;
+        let h = img.height;
+        if (w > maxWidth) { h = (h * maxWidth) / w; w = maxWidth; }
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = dataUrl;
+    });
+  };
+
+  const handleImageFile = async (idx, e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Image must be under 5MB', 'error');
+      e.target.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const compressed = await compressImage(event.target.result);
+      setProductForm((prev) => {
+        const imgs = [...prev.images];
+        imgs[idx] = compressed;
+        return { ...prev, images: imgs };
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleImageRemove = (idx) => {
     setProductForm((prev) => {
       const imgs = [...prev.images];
-      imgs[idx] = value;
+      imgs[idx] = '';
       return { ...prev, images: imgs };
     });
   };
@@ -106,16 +144,16 @@ const SellerDashboardPage = () => {
       };
       if (editingProduct) {
         await productAPI.update(editingProduct._id, payload);
-        toast.success('Product updated');
+        showToast('Product updated', 'success');
       } else {
         await productAPI.create(payload);
-        toast.success('Product created');
+        showToast('Product created', 'success');
       }
       setShowDrawer(false);
       resetForm();
       fetchData();
     } catch (err) {
-      toast.error(parseAPIError(err));
+      showToast(parseAPIError(err), 'error');
     } finally {
       setSavingProduct(false);
     }
@@ -124,10 +162,10 @@ const SellerDashboardPage = () => {
   const handleToggleActive = async (product) => {
     try {
       await productAPI.update(product._id, { isActive: !product.isActive });
-      toast.success(`Product ${product.isActive ? 'deactivated' : 'activated'}`);
+      showToast(`Product ${product.isActive ? 'deactivated' : 'activated'}`, 'success');
       fetchData();
     } catch (err) {
-      toast.error(parseAPIError(err));
+      showToast(parseAPIError(err), 'error');
     }
   };
 
@@ -135,10 +173,10 @@ const SellerDashboardPage = () => {
     if (!window.confirm('Are you sure you want to delete this product?')) return;
     try {
       await productAPI.delete(id);
-      toast.success('Product deleted');
+      showToast('Product deleted', 'success');
       fetchData();
     } catch (err) {
-      toast.error(parseAPIError(err));
+      showToast(parseAPIError(err), 'error');
     }
   };
 
@@ -147,9 +185,9 @@ const SellerDashboardPage = () => {
     try {
       const data = await sellerAPI.updateOrderStatus(orderId, newStatus);
       setOrders((prev) => prev.map((o) => (o._id === orderId ? data.order : o)));
-      toast.success(`Order status updated to ${newStatus}`);
+      showToast(`Order status updated to ${newStatus}`, 'success');
     } catch (err) {
-      toast.error(parseAPIError(err));
+      showToast(parseAPIError(err), 'error');
     } finally {
       setUpdatingStatus(null);
     }
@@ -186,7 +224,7 @@ const SellerDashboardPage = () => {
   const safeStatusUpdate = (orderId, currentStatus, newStatus) => {
     const allowed = STATUS_TRANSITIONS[currentStatus] || [];
     if (!allowed.includes(newStatus)) {
-      toast.error(`Cannot move from ${currentStatus} to ${newStatus}`);
+      showToast(`Cannot move from ${currentStatus} to ${newStatus}`, 'error');
       return;
     }
     handleStatusUpdate(orderId, newStatus);
@@ -230,11 +268,11 @@ const SellerDashboardPage = () => {
           <div style={styles.chartsRow}>
             <div style={styles.chartCard}>
               <h3 style={styles.chartTitle}>Revenue (Last 6 Months)</h3>
-              <RevenueChart data={revenueData} />
+              <RevenueTable data={revenueData} title="Revenue" />
             </div>
             <div style={styles.chartCard}>
               <h3 style={styles.chartTitle}>Orders by Status</h3>
-              <OrdersDonutChart data={orderStatusData} />
+              <OrdersDonutTable data={orderStatusData} title="Orders by Status" />
             </div>
           </div>
         </div>
@@ -313,7 +351,7 @@ const SellerDashboardPage = () => {
                             style={styles.statusSelect}
                             disabled={updatingStatus && updatingStatus.startsWith(o._id)}
                           >
-                            <option value="" disabled>{updatingStatus?.startsWith(o._id) ? 'Updating...' : 'Update →'}</option>
+                            <option value="" disabled>{updatingStatus?.startsWith(o._id) ? 'Updating...' : 'Update \u2192'}</option>
                             {allowedNext.map((ns) => (
                               <option key={ns} value={ns}>{ns.charAt(0).toUpperCase() + ns.slice(1)}</option>
                             ))}
@@ -335,21 +373,27 @@ const SellerDashboardPage = () => {
         </div>
       )}
 
-      {showDrawer && (
-        <div style={styles.overlay} onClick={() => setShowDrawer(false)}>
-          <div style={styles.drawer} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.drawerHeader}>
-              <h3 style={styles.drawerTitle}>{editingProduct ? 'Edit Product' : 'Add New Product'}</h3>
-              <button onClick={() => { setShowDrawer(false); resetForm(); }} style={styles.drawerClose}>✕</button>
+      {showDrawer && createPortal(
+        <div style={styles.modalOverlay} onClick={() => { setShowDrawer(false); resetForm(); }}>
+          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <h3 style={styles.modalTitle}>{editingProduct ? 'Edit Product' : 'Add New Product'}</h3>
+              <button onClick={() => { setShowDrawer(false); resetForm(); }} style={styles.modalClose}>✕</button>
             </div>
-            <form onSubmit={handleProductSubmit} style={styles.drawerForm}>
-              <div style={styles.field}>
-                <label style={styles.label}>Product Name</label>
-                <input value={productForm.name} onChange={(e) => setProductForm((p) => ({ ...p, name: e.target.value }))} required style={styles.input} />
+            <form onSubmit={handleProductSubmit} style={styles.modalForm}>
+              <div style={styles.fieldRow}>
+                <div style={styles.fieldHalf}>
+                  <label style={styles.label}>Product Name <span style={{color:'var(--color-error)'}}>*</span></label>
+                  <input value={productForm.name} onChange={(e) => setProductForm((p) => ({ ...p, name: e.target.value }))} required style={styles.input} />
+                </div>
+                <div style={styles.fieldHalf}>
+                  <label style={styles.label}>Brand</label>
+                  <input value={productForm.brand} onChange={(e) => setProductForm((p) => ({ ...p, brand: e.target.value }))} style={styles.input} />
+                </div>
               </div>
               <div style={styles.fieldRow}>
                 <div style={styles.fieldHalf}>
-                  <label style={styles.label}>Category</label>
+                  <label style={styles.label}>Category <span style={{color:'var(--color-error)'}}>*</span></label>
                   <select value={productForm.category} onChange={(e) => setProductForm((p) => ({ ...p, category: e.target.value }))} required style={styles.input}>
                     {['electronics', 'clothing', 'books', 'home', 'sports', 'beauty', 'toys', 'groceries', 'automotive', 'other'].map((c) => (
                       <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
@@ -357,47 +401,51 @@ const SellerDashboardPage = () => {
                   </select>
                 </div>
                 <div style={styles.fieldHalf}>
-                  <label style={styles.label}>Brand</label>
-                  <input value={productForm.brand} onChange={(e) => setProductForm((p) => ({ ...p, brand: e.target.value }))} style={styles.input} />
+                  <label style={styles.label}>Price (₹) <span style={{color:'var(--color-error)'}}>*</span></label>
+                  <input type="number" step="0.01" min="0" value={productForm.price} onChange={(e) => setProductForm((p) => ({ ...p, price: e.target.value }))} required style={styles.input} />
                 </div>
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Description</label>
-                <textarea value={productForm.description} onChange={(e) => setProductForm((p) => ({ ...p, description: e.target.value }))} required style={{ ...styles.input, minHeight: 80, resize: 'vertical' }} />
               </div>
               <div style={styles.fieldRow}>
                 <div style={styles.fieldHalf}>
-                  <label style={styles.label}>Price (₹)</label>
-                  <input type="number" step="0.01" min="0" value={productForm.price} onChange={(e) => setProductForm((p) => ({ ...p, price: e.target.value }))} required style={styles.input} />
+                  <label style={styles.label}>Stock <span style={{color:'var(--color-error)'}}>*</span></label>
+                  <input type="number" min="0" value={productForm.stock} onChange={(e) => { const val = e.target.value; setProductForm((p) => ({ ...p, stock: val === '' ? '' : Math.max(0, parseInt(val, 10) || 0).toString() })); }} required style={styles.input} />
                 </div>
                 <div style={styles.fieldHalf}>
                   <label style={styles.label}>Discount %</label>
                   <input type="number" min="0" max="100" value={productForm.discountPercent} onChange={(e) => setProductForm((p) => ({ ...p, discountPercent: e.target.value }))} style={styles.input} />
                 </div>
               </div>
+              <div style={styles.field}>
+                <label style={styles.label}>Description <span style={{color:'var(--color-error)'}}>*</span></label>
+                <textarea value={productForm.description} onChange={(e) => setProductForm((p) => ({ ...p, description: e.target.value }))} required style={{ ...styles.input, minHeight: 80, resize: 'vertical' }} />
+              </div>
               <div style={styles.fieldRow}>
-                <div style={styles.fieldHalf}>
-                  <label style={styles.label}>Stock</label>
-                  <input type="number" min="0" value={productForm.stock} onChange={(e) => setProductForm((p) => ({ ...p, stock: e.target.value }))} required style={styles.input} />
-                </div>
-                <div style={styles.fieldHalf}>
-                  <label style={styles.checkLabel}>
-                    <input type="checkbox" checked={productForm.isFeatured} onChange={(e) => setProductForm((p) => ({ ...p, isFeatured: e.target.checked }))} style={styles.checkbox} />
-                    Featured Product
-                  </label>
+                <div style={styles.checkField}>
+                  <input type="checkbox" id="featured-check" checked={productForm.isFeatured} onChange={(e) => setProductForm((p) => ({ ...p, isFeatured: e.target.checked }))} style={styles.checkbox} />
+                  <label htmlFor="featured-check" style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--color-text-primary)', cursor: 'pointer', userSelect: 'none' }}>Featured Product</label>
                 </div>
               </div>
               <div style={styles.field}>
-                <label style={styles.label}>Product Images (URLs — up to 5)</label>
+                <label style={styles.label}>Product Images (up to 5, max 5MB each — auto-compressed)</label>
                 {productForm.images.map((url, idx) => (
                   <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
-                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', width: 20 }}>{idx + 1}.</span>
-                    <input value={url} onChange={(e) => handleImageChange(idx, e.target.value)} style={styles.input} placeholder={`Image URL ${idx + 1}`} />
-                    {url && <img src={url} alt="" style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)', objectFit: 'cover' }} onError={(e) => { e.target.style.display = 'none'; }} />}
+                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', width: 20, flexShrink: 0 }}>{idx + 1}.</span>
+                    {!url ? (
+                      <label style={{ flex: 1, display: 'block', cursor: 'pointer' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', padding: 'var(--space-2) var(--space-4)', fontSize: 'var(--text-xs)', fontWeight: 600, color: '#fff', background: 'linear-gradient(135deg, var(--color-primary), var(--color-primary-dark))', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontFamily: 'inherit' }}>Choose File</span>
+                        <input type="file" accept="image/*" onChange={(e) => handleImageFile(idx, e)} style={{ display: 'none' }} />
+                      </label>
+                    ) : (
+                      <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                        <img src={url} alt="" style={{ width: 40, height: 40, borderRadius: 'var(--radius-sm)', objectFit: 'cover', border: '1px solid var(--color-border)', flexShrink: 0 }} />
+                        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', flex: 1 }}>Image selected</span>
+                        <button type="button" onClick={() => handleImageRemove(idx)} style={{ color: 'var(--color-error)', fontSize: 'var(--text-xs)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Remove</button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
-              <div style={styles.drawerActions}>
+              <div style={styles.modalActions}>
                 <button type="button" onClick={() => { setShowDrawer(false); resetForm(); }} className="btn-ghost" style={{ padding: 'var(--space-2) var(--space-6)' }}>Cancel</button>
                 <button type="submit" className="btn-primary" disabled={savingProduct} style={{ padding: 'var(--space-2) var(--space-6)' }}>
                   {savingProduct ? 'Saving...' : editingProduct ? 'Update Product' : 'Create Product'}
@@ -405,7 +453,8 @@ const SellerDashboardPage = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -441,20 +490,20 @@ const styles = {
   badge: { display: 'inline-block', padding: '2px 8px', borderRadius: 'var(--radius-full)', fontSize: 'var(--text-xs)', fontWeight: 600 },
   iconBtn: { padding: 'var(--space-1)', cursor: 'pointer', color: 'var(--color-text-secondary)', background: 'none', border: 'none', display: 'inline-flex', alignItems: 'center' },
   statusSelect: { padding: 'var(--space-1) var(--space-2)', fontSize: 'var(--text-xs)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--color-bg-primary)', color: 'var(--color-text-primary)', cursor: 'pointer' },
-  overlay: { position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', justifyContent: 'flex-end' },
-  drawer: { width: '100%', maxWidth: 560, backgroundColor: 'var(--color-bg-card)', height: '100vh', overflowY: 'auto', boxShadow: 'var(--shadow-xl)', display: 'flex', flexDirection: 'column' },
-  drawerHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--space-5) var(--space-6)', borderBottom: '1px solid var(--color-border)' },
-  drawerTitle: { fontFamily: 'var(--font-display)', fontSize: 'var(--text-lg)', fontWeight: 600 },
-  drawerClose: { width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--text-lg)', color: 'var(--color-text-muted)', background: 'none', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', cursor: 'pointer' },
-  drawerForm: { padding: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', flex: 1, overflowY: 'auto' },
+  modalOverlay: { position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-4)' },
+  modalContent: { width: '100%', maxWidth: 600, maxHeight: '90vh', backgroundColor: '#222233', borderRadius: 'var(--radius-lg)', boxShadow: '0 25px 60px rgba(0,0,0,0.8)', display: 'flex', flexDirection: 'column', overflow: 'hidden', border: '1px solid rgba(255,107,53,0.3)' },
+  modalHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--space-5) var(--space-6)', borderBottom: '1px solid var(--color-border)' },
+  modalTitle: { fontFamily: 'var(--font-display)', fontSize: 'var(--text-lg)', fontWeight: 600 },
+  modalClose: { width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--text-lg)', color: 'var(--color-text-muted)', background: 'none', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', flexShrink: 0 },
+  modalForm: { padding: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', overflowY: 'auto' },
   field: {},
   fieldRow: { display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap' },
-  fieldHalf: { flex: '1 1 180px' },
+  fieldHalf: { flex: '1 1 200px', minWidth: 0 },
+  checkField: { display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 'var(--space-2) 0' },
   label: { display: 'block', fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--color-text-primary)', marginBottom: 'var(--space-1)' },
-  checkLabel: { display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--color-text-primary)', marginTop: 'var(--space-5)', cursor: 'pointer' },
-  checkbox: { width: 16, height: 16, accentColor: 'var(--color-primary)' },
-  input: { width: '100%', padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-sm)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-bg-primary)', color: 'var(--color-text-primary)', outline: 'none', transition: 'border-color var(--transition-fast)', boxSizing: 'border-box' },
-  drawerActions: { display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-3)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--color-border)', marginTop: 'auto' },
+  checkbox: { width: 16, height: 16, accentColor: 'var(--color-primary)', cursor: 'pointer' },
+  input: { width: '100%', padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-sm)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', backgroundColor: '#1a1a28', color: 'var(--color-text-primary)', outline: 'none', transition: 'border-color var(--transition-fast)', boxSizing: 'border-box' },
+  modalActions: { display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-3)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--color-border)' },
 };
 
 export default SellerDashboardPage;

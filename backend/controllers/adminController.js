@@ -1,12 +1,9 @@
-const User = require('../models/User');
-const Product = require('../models/Product');
-const Order = require('../models/Order');
-const Review = require('../models/Review');
-const Cart = require('../models/Cart');
 const AppError = require('../utils/AppError');
+const { ObjectId } = require('mongodb');
 
 const getAllUsers = async (req, res, next) => {
   try {
+    const db = req.db;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     const skip = (page - 1) * limit;
@@ -20,14 +17,15 @@ const getAllUsers = async (req, res, next) => {
       ];
     }
 
-    const totalResults = await User.countDocuments(filter);
+    const totalResults = await db.collection('users').countDocuments(filter);
     const totalPages = Math.ceil(totalResults / limit);
 
-    const users = await User.find(filter)
-      .select('-password -refreshToken')
+    const users = await db.collection('users')
+      .find(filter, { projection: { password: 0, refreshToken: 0 } })
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .toArray();
 
     res.status(200).json({
       status: 'success',
@@ -44,23 +42,27 @@ const getAllUsers = async (req, res, next) => {
 
 const updateUserStatus = async (req, res, next) => {
   try {
-    const user = await User.findById(req.params.id);
+    const db = req.db;
+    const user = await db.collection('users').findOne({ _id: new ObjectId(req.params.id) });
     if (!user) {
       return next(new AppError('User not found', 404));
     }
 
-    user.isActive = !user.isActive;
-    await user.save();
+    const newStatus = !user.isActive;
+    await db.collection('users').updateOne(
+      { _id: new ObjectId(req.params.id) },
+      { $set: { isActive: newStatus } }
+    );
 
     res.status(200).json({
       status: 'success',
-      message: `User ${user.isActive ? 'activated' : 'deactivated'} successfully`,
+      message: `User ${newStatus ? 'activated' : 'deactivated'} successfully`,
       user: {
         _id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
-        isActive: user.isActive,
+        isActive: newStatus,
         createdAt: user.createdAt,
       },
     });
@@ -76,13 +78,16 @@ const updateUserRole = async (req, res, next) => {
       return next(new AppError('Invalid role. Must be USER, SELLER, or ADMIN', 400));
     }
 
-    const user = await User.findById(req.params.id);
+    const db = req.db;
+    const user = await db.collection('users').findOne({ _id: new ObjectId(req.params.id) });
     if (!user) {
       return next(new AppError('User not found', 404));
     }
 
-    user.role = role;
-    await user.save();
+    await db.collection('users').updateOne(
+      { _id: new ObjectId(req.params.id) },
+      { $set: { role } }
+    );
 
     res.status(200).json({
       status: 'success',
@@ -91,7 +96,7 @@ const updateUserRole = async (req, res, next) => {
         _id: user._id,
         name: user.name,
         email: user.email,
-        role: user.role,
+        role,
         isActive: user.isActive,
         createdAt: user.createdAt,
       },
@@ -103,16 +108,18 @@ const updateUserRole = async (req, res, next) => {
 
 const deleteUser = async (req, res, next) => {
   try {
-    const user = await User.findById(req.params.id);
+    const db = req.db;
+    const userId = new ObjectId(req.params.id);
+    const user = await db.collection('users').findOne({ _id: userId });
     if (!user) {
       return next(new AppError('User not found', 404));
     }
 
-    await Product.deleteMany({ seller: user._id });
-    await Order.deleteMany({ user: user._id });
-    await Review.deleteMany({ user: user._id });
-    await Cart.deleteMany({ user: user._id });
-    await User.findByIdAndDelete(user._id);
+    await db.collection('products').deleteMany({ seller: userId });
+    await db.collection('orders').deleteMany({ user: userId });
+    await db.collection('reviews').deleteMany({ user: userId });
+    await db.collection('carts').deleteMany({ user: userId });
+    await db.collection('users').deleteOne({ _id: userId });
 
     res.status(200).json({
       status: 'success',
@@ -125,6 +132,7 @@ const deleteUser = async (req, res, next) => {
 
 const getAllOrders = async (req, res, next) => {
   try {
+    const db = req.db;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     const skip = (page - 1) * limit;
@@ -132,15 +140,46 @@ const getAllOrders = async (req, res, next) => {
     const filter = {};
     if (req.query.status) filter.orderStatus = req.query.status.toUpperCase();
 
-    const totalResults = await Order.countDocuments(filter);
+    const totalResults = await db.collection('orders').countDocuments(filter);
     const totalPages = Math.ceil(totalResults / limit);
 
-    const orders = await Order.find(filter)
-      .populate('user', 'name email')
-      .populate('orderItems.product', 'name')
+    const orders = await db.collection('orders')
+      .find(filter)
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .toArray();
+
+    // Populate user info
+    for (const order of orders) {
+      const user = await db.collection('users').findOne(
+        { _id: order.user },
+        { projection: { name: 1, email: 1 } }
+      );
+      order.user = user || { name: 'Unknown' };
+    }
+
+    const transformOrder = (order) => {
+      if (!order) return null;
+      const t = { ...order };
+      t.orderId = t._id;
+      t.status = (t.orderStatus || 'PENDING').toLowerCase();
+      t.items = t.orderItems || [];
+      t.subtotal = t.itemsPrice;
+      t.tax = t.taxPrice;
+      t.shippingCost = t.shippingPrice;
+      t.total = t.totalPrice;
+      delete t.totalPrice;
+      delete t.itemsPrice;
+      delete t.taxPrice;
+      delete t.shippingPrice;
+      delete t.orderItems;
+      if (t.shippingAddress) {
+        t.shippingAddress.zipCode = t.shippingAddress.pincode || t.shippingAddress.zipCode;
+        delete t.shippingAddress.pincode;
+      }
+      return t;
+    };
 
     res.status(200).json({
       status: 'success',
@@ -148,7 +187,7 @@ const getAllOrders = async (req, res, next) => {
       totalResults,
       totalPages,
       currentPage: page,
-      orders,
+      orders: orders.map(transformOrder),
     });
   } catch (error) {
     next(error);
@@ -157,32 +196,28 @@ const getAllOrders = async (req, res, next) => {
 
 const getDashboardStats = async (req, res, next) => {
   try {
-    const userCounts = await User.aggregate([
+    const db = req.db;
+
+    const userCounts = await db.collection('users').aggregate([
       { $group: { _id: '$role', count: { $sum: 1 } } },
-    ]);
+    ]).toArray();
 
     const totalUsers = userCounts.reduce((sum, r) => sum + (r._id !== 'ADMIN' ? r.count : 0), 0);
     const totalSellers = userCounts.find((r) => r._id === 'SELLER')?.count || 0;
 
-    const totalProducts = await Product.countDocuments();
-    const totalOrders = await Order.countDocuments();
+    const totalProducts = await db.collection('products').countDocuments();
+    const totalOrders = await db.collection('orders').countDocuments();
 
-    const revenueAgg = await Order.aggregate([
+    const revenueAgg = await db.collection('orders').aggregate([
       { $match: { orderStatus: 'DELIVERED' } },
-      {
-        $group: {
-          _id: null,
-          totalRevenue: { $sum: '$totalPrice' },
-        },
-      },
-    ]);
-
+      { $group: { _id: null, totalRevenue: { $sum: '$totalPrice' } } },
+    ]).toArray();
     const totalRevenue = revenueAgg.length > 0 ? Math.round(revenueAgg[0].totalRevenue * 100) / 100 : 0;
 
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-    const monthlyRevenue = await Order.aggregate([
+    const monthlyRevenue = await db.collection('orders').aggregate([
       { $match: { orderStatus: 'DELIVERED', createdAt: { $gte: sixMonthsAgo } } },
       {
         $group: {
@@ -204,14 +239,14 @@ const getDashboardStats = async (req, res, next) => {
           revenue: { $round: ['$revenue', 2] },
         },
       },
-    ]);
+    ]).toArray();
 
-    const ordersByStatus = await Order.aggregate([
+    const ordersByStatus = await db.collection('orders').aggregate([
       { $group: { _id: '$orderStatus', count: { $sum: 1 } } },
       { $project: { status: { $toLower: '$_id' }, count: 1, _id: 0 } },
-    ]);
+    ]).toArray();
 
-    const topProducts = await Order.aggregate([
+    const topProducts = await db.collection('orders').aggregate([
       { $unwind: '$orderItems' },
       {
         $group: {
@@ -224,18 +259,10 @@ const getDashboardStats = async (req, res, next) => {
       },
       { $sort: { totalSold: -1 } },
       { $limit: 5 },
-      {
-        $project: {
-          _id: 1,
-          name: 1,
-          totalSold: 1,
-          revenue: 1,
-          images: [{ url: '$image' }],
-        },
-      },
-    ]);
+      { $project: { _id: 1, name: 1, totalSold: 1, revenue: 1, images: [{ url: '$image' }] } },
+    ]).toArray();
 
-    const activeUsers = await User.countDocuments({ isActive: true });
+    const activeUsers = await db.collection('users').countDocuments({ isActive: true });
 
     res.status(200).json({
       status: 'success',

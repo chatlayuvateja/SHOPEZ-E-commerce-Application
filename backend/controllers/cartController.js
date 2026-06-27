@@ -1,14 +1,29 @@
-const Cart = require('../models/Cart');
-const Product = require('../models/Product');
 const AppError = require('../utils/AppError');
+const { ObjectId } = require('mongodb');
 
 const getCart = async (req, res, next) => {
   try {
-    let cart = await Cart.findOne({ user: req.user.id })
-      .populate('items.product', 'name images price discountPercent stock isActive');
+    const db = req.db;
+    let cart = await db.collection('carts').findOne({ user: new ObjectId(req.user._id) });
 
     if (!cart) {
-      cart = await Cart.create({ user: req.user.id, items: [] });
+      cart = { user: new ObjectId(req.user._id), items: [], updatedAt: new Date() };
+      const result = await db.collection('carts').insertOne(cart);
+      cart._id = result.insertedId;
+    }
+
+    // Populate product info
+    if (cart.items && cart.items.length > 0) {
+      const productIds = cart.items.map((item) => new ObjectId(item.product));
+      const products = await db.collection('products')
+        .find({ _id: { $in: productIds } })
+        .project({ name: 1, images: 1, price: 1, discountPercent: 1, stock: 1, isActive: 1 })
+        .toArray();
+      const productMap = {};
+      products.forEach((p) => { productMap[p._id.toString()] = p; });
+      cart.items.forEach((item) => {
+        item.product = productMap[item.product.toString()] || item.product;
+      });
     }
 
     res.status(200).json({
@@ -22,43 +37,60 @@ const getCart = async (req, res, next) => {
 
 const addToCart = async (req, res, next) => {
   try {
+    const db = req.db;
     const { product: productId, quantity = 1 } = req.body;
 
-    const product = await Product.findById(productId);
+    const product = await db.collection('products').findOne({ _id: new ObjectId(productId) });
     if (!product || !product.isActive) {
       return next(new AppError('Product not found or unavailable', 404));
     }
-
     if (product.stock < 1) {
       return next(new AppError('Product is out of stock', 400));
     }
 
-    let cart = await Cart.findOne({ user: req.user.id });
+    let cart = await db.collection('carts').findOne({ user: new ObjectId(req.user._id) });
     if (!cart) {
-      cart = await Cart.create({ user: req.user.id, items: [] });
+      cart = { user: new ObjectId(req.user._id), items: [], updatedAt: new Date() };
+      const result = await db.collection('carts').insertOne(cart);
+      cart._id = result.insertedId;
     }
 
-    const existingItem = cart.items.find(
+    const existingIndex = cart.items.findIndex(
       (item) => item.product.toString() === productId
     );
 
-    if (existingItem) {
-      const newQty = existingItem.quantity + (quantity || 1);
+    if (existingIndex >= 0) {
+      const newQty = cart.items[existingIndex].quantity + quantity;
       if (newQty > product.stock) {
         return next(new AppError(`Cannot add more than ${product.stock} items`, 400));
       }
-      existingItem.quantity = newQty;
+      cart.items[existingIndex].quantity = newQty;
     } else {
+      const finalPrice = Math.round((product.price * (1 - (product.discountPercent || 0) / 100)) * 100) / 100;
       cart.items.push({
-        product: productId,
-        quantity: quantity || 1,
-        priceAtAdd: product.finalPrice !== undefined ? product.finalPrice : product.price,
+        product: new ObjectId(productId),
+        quantity,
+        priceAtAdd: finalPrice || product.price,
       });
     }
 
-    await cart.save();
+    cart.updatedAt = new Date();
+    await db.collection('carts').updateOne(
+      { _id: cart._id },
+      { $set: { items: cart.items, updatedAt: cart.updatedAt } }
+    );
 
-    await cart.populate('items.product', 'name images price discountPercent stock isActive');
+    // Repopulate
+    const productIds = cart.items.map((item) => new ObjectId(item.product));
+    const products = await db.collection('products')
+      .find({ _id: { $in: productIds } })
+      .project({ name: 1, images: 1, price: 1, discountPercent: 1, stock: 1, isActive: 1 })
+      .toArray();
+    const productMap = {};
+    products.forEach((p) => { productMap[p._id.toString()] = p; });
+    cart.items.forEach((item) => {
+      item.product = productMap[item.product.toString()] || item.product;
+    });
 
     res.status(200).json({
       status: 'success',
@@ -71,35 +103,49 @@ const addToCart = async (req, res, next) => {
 
 const updateCartItem = async (req, res, next) => {
   try {
+    const db = req.db;
     const { product: productId, quantity } = req.body;
 
     if (!quantity || quantity < 1) {
       return next(new AppError('Quantity must be at least 1', 400));
     }
 
-    const product = await Product.findById(productId);
+    const product = await db.collection('products').findOne({ _id: new ObjectId(productId) });
     if (!product) {
       return next(new AppError('Product not found', 404));
     }
-
     if (quantity > product.stock) {
       return next(new AppError(`Only ${product.stock} items available in stock`, 400));
     }
 
-    const cart = await Cart.findOne({ user: req.user.id });
+    const cart = await db.collection('carts').findOne({ user: new ObjectId(req.user._id) });
     if (!cart) {
       return next(new AppError('Cart not found', 404));
     }
 
-    const item = cart.items.find((i) => i.product.toString() === productId);
-    if (!item) {
+    const itemIndex = cart.items.findIndex((i) => i.product.toString() === productId);
+    if (itemIndex === -1) {
       return next(new AppError('Item not found in cart', 404));
     }
 
-    item.quantity = quantity;
-    await cart.save();
+    cart.items[itemIndex].quantity = quantity;
+    cart.updatedAt = new Date();
+    await db.collection('carts').updateOne(
+      { _id: cart._id },
+      { $set: { items: cart.items, updatedAt: cart.updatedAt } }
+    );
 
-    await cart.populate('items.product', 'name images price discountPercent stock isActive');
+    // Repopulate
+    const productIds = cart.items.map((item) => new ObjectId(item.product));
+    const products = await db.collection('products')
+      .find({ _id: { $in: productIds } })
+      .project({ name: 1, images: 1, price: 1, discountPercent: 1, stock: 1, isActive: 1 })
+      .toArray();
+    const productMap = {};
+    products.forEach((p) => { productMap[p._id.toString()] = p; });
+    cart.items.forEach((item) => {
+      item.product = productMap[item.product.toString()] || item.product;
+    });
 
     res.status(200).json({
       status: 'success',
@@ -112,7 +158,8 @@ const updateCartItem = async (req, res, next) => {
 
 const removeFromCart = async (req, res, next) => {
   try {
-    const cart = await Cart.findOne({ user: req.user.id });
+    const db = req.db;
+    const cart = await db.collection('carts').findOne({ user: new ObjectId(req.user._id) });
     if (!cart) {
       return next(new AppError('Cart not found', 404));
     }
@@ -120,10 +167,23 @@ const removeFromCart = async (req, res, next) => {
     cart.items = cart.items.filter(
       (item) => item.product.toString() !== req.params.productId
     );
+    cart.updatedAt = new Date();
+    await db.collection('carts').updateOne(
+      { _id: cart._id },
+      { $set: { items: cart.items, updatedAt: cart.updatedAt } }
+    );
 
-    await cart.save();
-
-    await cart.populate('items.product', 'name images price discountPercent stock isActive');
+    // Repopulate
+    const productIds = cart.items.map((item) => new ObjectId(item.product));
+    const products = await db.collection('products')
+      .find({ _id: { $in: productIds } })
+      .project({ name: 1, images: 1, price: 1, discountPercent: 1, stock: 1, isActive: 1 })
+      .toArray();
+    const productMap = {};
+    products.forEach((p) => { productMap[p._id.toString()] = p; });
+    cart.items.forEach((item) => {
+      item.product = productMap[item.product.toString()] || item.product;
+    });
 
     res.status(200).json({
       status: 'success',
@@ -136,19 +196,20 @@ const removeFromCart = async (req, res, next) => {
 
 const clearCart = async (req, res, next) => {
   try {
-    const cart = await Cart.findOneAndUpdate(
-      { user: req.user.id },
-      { items: [] },
-      { new: true }
+    const db = req.db;
+    const result = await db.collection('carts').findOneAndUpdate(
+      { user: new ObjectId(req.user._id) },
+      { $set: { items: [], updatedAt: new Date() } },
+      { returnDocument: 'after' }
     );
 
-    if (!cart) {
+    if (!result) {
       return next(new AppError('Cart not found', 404));
     }
 
     res.status(200).json({
       status: 'success',
-      cart,
+      cart: result,
     });
   } catch (error) {
     next(error);

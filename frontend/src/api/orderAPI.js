@@ -1,10 +1,9 @@
-import axiosInstance from './axiosInstance';
+import api from './fetchInstance';
 
-const orderAPI = {
-  create: (data) => axiosInstance.post('/orders', data).then((res) => res.data),
-  getMyOrders: (params) => axiosInstance.get('/orders/my-orders', { params }).then((res) => res.data),
-  getById: (id) => axiosInstance.get(`/orders/${id}`).then((res) => res.data),
-  cancel: (id, reason) => axiosInstance.patch(`/orders/${id}/cancel`, { cancelReason: reason }).then((res) => res.data),
-};
+export const create = (data) => api.post('/orders', data);
+export const getMyOrders = (params) => api.get('/orders/my-orders', { params });
+export const getById = (id) => api.get(`/orders/${id}`);
+export const cancel = (id, reason) => api.patch(`/orders/${id}/cancel`, { cancelReason: reason });
 
+const orderAPI = { create, getMyOrders, getById, cancel };
 export default orderAPI;

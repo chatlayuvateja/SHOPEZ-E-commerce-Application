@@ -1,12 +1,11 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { FiArrowRight, FiChevronRight, FiTruck, FiShield, FiPackage, FiRefreshCw, FiHeadphones, FiStar, FiTrendingUp } from 'react-icons/fi';
+import { Link, useNavigate } from '../router/Router';
+import { FiArrowRight, FiChevronRight, FiTruck, FiShield, FiPackage, FiRefreshCw, FiHeadphones, FiStar, FiTrendingUp } from '../utils/Icons';
 import useFetch from '../hooks/useFetch';
+import useAuth from '../hooks/useAuth';
 import productAPI from '../api/productAPI';
 import ProductCard from '../components/products/ProductCard';
 import ProductCardSkeleton from '../components/products/ProductCardSkeleton';
-import HeroScene from '../components/3d/HeroScene';
 
 const CATEGORIES = [
   { name: 'Electronics', icon: '⬡', desc: 'Gadgets & gear' },
@@ -30,25 +29,9 @@ const FEATURES = [
   { icon: FiHeadphones, title: '24/7 Support', desc: 'Dedicated help center' },
 ];
 
-const staggerContainer = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.06 },
-  },
-};
-
-const fadeInUp = {
-  hidden: { opacity: 0, y: 30 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
-};
-
-const scaleIn = {
-  hidden: { opacity: 0, scale: 0.9 },
-  visible: { opacity: 1, scale: 1, transition: { duration: 0.4 } },
-};
-
 const HomePage = () => {
+  const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
   const { data: featuredData, isLoading: loadingFeatured } = useFetch(
     (signal) => productAPI.getFeatured(signal), []
   );
@@ -58,19 +41,22 @@ const HomePage = () => {
 
   const featured = featuredData?.products || [];
 
+  const handleStartSelling = (e) => {
+    e.preventDefault();
+    if (isAuthenticated && user.role === 'SELLER') {
+      navigate('/seller/dashboard');
+    } else {
+      navigate('/register');
+    }
+  };
+
   return (
     <>
-      {/* 3D Hero Section */}
-      <section style={styles.hero}>
-        <HeroScene />
+      {/* Hero Section */}
+      <section className="hero-section" style={styles.hero}>
         <div style={styles.heroOverlay} />
         <div className="container" style={styles.heroInner}>
-          <motion.div
-            style={styles.heroContent}
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-          >
+          <div className="fade-in-up" style={styles.heroContent}>
             <h1 style={styles.heroTitle}>
               Discover <span style={styles.heroAccent}>Premium</span><br />
               Products That Inspire
@@ -79,25 +65,15 @@ const HomePage = () => {
               Curated marketplace for quality products at unbeatable prices.
               Shop millions of items with free delivery and secure payments.
             </p>
-            <motion.div
-              style={styles.heroCtas}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.6 }}
-            >
+            <div className="fade-in-up" style={styles.heroCtas}>
               <Link to="/products" className="btn-primary" style={styles.heroBtn}>
                 Explore Now <FiArrowRight size={18} />
               </Link>
-              <Link to="/register" className="btn-secondary" style={styles.heroBtnOutline}>
+              <a href="/register" className="btn-secondary" style={styles.heroBtnOutline} onClick={handleStartSelling}>
                 Start Selling
-              </Link>
-            </motion.div>
-            <motion.div
-              style={styles.heroStats}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5, delay: 0.8 }}
-            >
+              </a>
+            </div>
+            <div className="fade-in-up" style={styles.heroStats}>
               <div style={styles.stat}>
                 <span style={styles.statValue}>10K+</span>
                 <span style={styles.statLabel}>Products</span>
@@ -110,14 +86,9 @@ const HomePage = () => {
                 <span style={styles.statValue}>500+</span>
                 <span style={styles.statLabel}>Sellers</span>
               </div>
-            </motion.div>
-          </motion.div>
-          <motion.div
-            style={styles.heroVisual}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 1, delay: 0.5 }}
-          >
+            </div>
+          </div>
+          <div className="fade-in-up" style={styles.heroVisual}>
             <div style={styles.heroCard}>
               <div style={styles.heroCardGlow} />
               <div style={styles.heroCardContent}>
@@ -125,35 +96,21 @@ const HomePage = () => {
                 <p style={styles.heroCardText}>Premium Quality</p>
               </div>
             </div>
-          </motion.div>
+          </div>
         </div>
-        <div style={styles.scrollIndicator}>
-          <motion.div
-            animate={{ y: [0, 8, 0] }}
-            transition={{ duration: 2, repeat: Infinity }}
-          >
-            <FiChevronRight size={24} style={{ transform: 'rotate(90deg)' }} />
-          </motion.div>
+        <div className="float-animation" style={styles.scrollIndicator}>
+          <FiChevronRight size={24} style={{ transform: 'rotate(90deg)' }} />
         </div>
       </section>
 
       {/* Features Strip */}
-      <motion.section
-        style={styles.featuresStrip}
-        initial={{ opacity: 0, y: 30 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: '-100px' }}
-        transition={{ duration: 0.6 }}
-      >
+      <section className="fade-in-up" style={styles.featuresStrip}>
         <div className="container" style={styles.featuresGrid}>
           {FEATURES.map((feat, i) => (
-            <motion.div
+            <div
               key={feat.title}
+              className="fade-in-up"
               style={styles.featureItem}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: i * 0.1 }}
             >
               <div style={styles.featureIcon}>
                 <feat.icon size={20} />
@@ -162,20 +119,14 @@ const HomePage = () => {
                 <p style={styles.featureTitle}>{feat.title}</p>
                 <p style={styles.featureDesc}>{feat.desc}</p>
               </div>
-            </motion.div>
+            </div>
           ))}
         </div>
-      </motion.section>
+      </section>
 
       {/* Categories */}
       <section className="container section" style={styles.section}>
-        <motion.div
-          style={styles.sectionHeader}
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.4 }}
-        >
+        <div className="fade-in-up" style={styles.sectionHeader}>
           <div>
             <h2 className="section-title">Shop by Category</h2>
             <p className="section-subtitle">Browse thousands of products across categories</p>
@@ -183,20 +134,14 @@ const HomePage = () => {
           <Link to="/products" style={styles.viewAll}>
             View All <FiChevronRight size={16} />
           </Link>
-        </motion.div>
-        <motion.div
-          style={styles.categoriesGrid}
-          variants={staggerContainer}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: '-50px' }}
-        >
+        </div>
+        <div className="stagger-children" style={styles.categoriesGrid}>
           {loadingCategories
             ? [...Array(8)].map((_, i) => (
                 <div key={i} className="skeleton" style={styles.categorySkeleton} />
               ))
             : CATEGORIES.map((cat, i) => (
-                <motion.div key={cat.name} variants={fadeInUp}>
+                <div key={cat.name} className="fade-in-up">
                   <Link
                     to={`/products?category=${encodeURIComponent(cat.name)}`}
                     style={styles.categoryCard}
@@ -205,21 +150,15 @@ const HomePage = () => {
                     <span style={styles.categoryName}>{cat.name}</span>
                     <span style={styles.categoryDesc}>{cat.desc}</span>
                   </Link>
-                </motion.div>
+                </div>
               ))
           }
-        </motion.div>
+        </div>
       </section>
 
       {/* Featured Products */}
       <section className="container section" style={styles.section}>
-        <motion.div
-          style={styles.sectionHeader}
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.4 }}
-        >
+        <div className="fade-in-up" style={styles.sectionHeader}>
           <div>
             <h2 className="section-title">Featured Products</h2>
             <p className="section-subtitle">Handpicked favorites just for you</p>
@@ -227,14 +166,8 @@ const HomePage = () => {
           <Link to="/products?featured=true" style={styles.viewAll}>
             View All <FiChevronRight size={16} />
           </Link>
-        </motion.div>
-        <motion.div
-          style={styles.productsGrid}
-          variants={staggerContainer}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: '-50px' }}
-        >
+        </div>
+        <div className="stagger-children" style={styles.productsGrid}>
           {loadingFeatured
             ? [...Array(4)].map((_, i) => (
                 <div key={i} style={{ minWidth: 0 }}>
@@ -242,100 +175,76 @@ const HomePage = () => {
                 </div>
               ))
             : featured.map((product, i) => (
-                <motion.div key={product._id} variants={fadeInUp}>
+                <div key={product._id} className="fade-in-up">
                   <ProductCard product={product} index={i} />
-                </motion.div>
+                </div>
               ))
           }
-        </motion.div>
+        </div>
       </section>
 
       {/* Promo Banner */}
       <section style={styles.promoBanner}>
         <div className="container" style={styles.promoInner}>
-          <motion.div
-            style={styles.promoContent}
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-          >
-            <motion.span
+          <div className="fade-in-up" style={styles.promoContent}>
+            <span
+              className="pulse-animation"
               style={styles.promoBadge}
-              animate={{ backgroundPosition: ['0% center', '100% center', '0% center'] }}
-              transition={{ duration: 4, repeat: Infinity }}
             >
               Limited Time Offer
-            </motion.span>
+            </span>
             <h2 style={styles.promoTitle}>Summer Sale is Live!</h2>
             <p style={styles.promoText}>
               Get up to <strong>50% off</strong> on selected items. Use code <span style={styles.promoCode}>SUMMER50</span> at checkout.
             </p>
-            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-              <Link to="/products" style={styles.promoBtn}>
+            <div>
+              <Link to="/products" className="scale-in" style={styles.promoBtn}>
                 Grab the Deals <FiArrowRight size={18} />
               </Link>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         </div>
       </section>
 
       {/* Marketplace Stats */}
       <section className="container section" style={{ ...styles.section, textAlign: 'center' }}>
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.4 }}
-        >
+        <div className="fade-in-up">
           <h2 className="section-title">Why ShopEZ?</h2>
           <p className="section-subtitle">The most trusted marketplace for premium products</p>
-        </motion.div>
-        <motion.div
-          style={styles.statsGrid}
-          variants={staggerContainer}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-        >
+        </div>
+        <div className="stagger-children" style={styles.statsGrid}>
           {[
             { icon: FiPackage, value: '50K+', label: 'Products' },
             { icon: FiTrendingUp, value: '10M+', label: 'Orders Delivered' },
             { icon: FiStar, value: '4.8★', label: 'Average Rating' },
             { icon: FiShield, value: '100%', label: 'Secure Payments' },
           ].map((stat, i) => (
-            <motion.div key={stat.label} style={styles.statCard} variants={scaleIn}>
+            <div key={stat.label} className="scale-in" style={styles.statCard}>
               <div style={styles.statCardIcon}>
                 <stat.icon size={24} />
               </div>
               <p style={styles.statCardValue}>{stat.value}</p>
               <p style={styles.statCardLabel}>{stat.label}</p>
-            </motion.div>
+            </div>
           ))}
-        </motion.div>
+        </div>
       </section>
 
       {/* CTA Section */}
       <section style={styles.ctaSection}>
         <div className="container" style={styles.ctaInner}>
-          <motion.div
-            style={styles.ctaContent}
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-          >
+          <div className="fade-in-up" style={styles.ctaContent}>
             <h2 style={styles.ctaTitle}>Ready to Start Selling?</h2>
             <p style={styles.ctaText}>
               Join thousands of sellers and reach millions of customers worldwide.
               Set up your store in minutes.
             </p>
-            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-              <Link to="/register" style={styles.ctaBtn}>
+            <div>
+              <a href="/register" className="scale-in" style={styles.ctaBtn} onClick={handleStartSelling}>
                 Become a Seller <FiArrowRight size={18} />
-              </Link>
-            </motion.div>
-          </motion.div>
+              </a>
+            </div>
+          </div>
         </div>
       </section>
     </>
@@ -350,6 +259,7 @@ const styles = {
     alignItems: 'center',
     overflow: 'hidden',
     paddingTop: 'var(--navbar-height)',
+    background: 'linear-gradient(135deg, rgba(255,107,53,0.08) 0%, rgba(74,144,217,0.06) 50%, rgba(10,10,15,1) 100%)',
   },
   heroOverlay: {
     position: 'absolute',

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { FiShoppingCart, FiMinus, FiPlus, FiCheck, FiAlertCircle, FiStar, FiRefreshCw } from 'react-icons/fi';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useParams, Link, useNavigate } from '../router/Router';
+import { FiShoppingCart, FiMinus, FiPlus, FiCheck, FiAlertCircle, FiStar } from '../utils/Icons';
 import productAPI from '../api/productAPI';
 import reviewAPI from '../api/reviewAPI';
 import useAuth from '../hooks/useAuth';
@@ -9,8 +8,7 @@ import { useCart } from '../contexts/CartContext';
 import StarRating from '../components/products/StarRating';
 import ReviewCard from '../components/products/ReviewCard';
 import ErrorState from '../components/common/ErrorState';
-import ProductViewer from '../components/3d/ProductViewer';
-import toast from 'react-hot-toast';
+import { useToast } from '../components/common/Toast';
 import { formatINR } from '../utils/formatCurrency';
 import parseAPIError from '../utils/errorParser';
 
@@ -18,13 +16,14 @@ const ProductDetailPage = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
+  const isSeller = user?.role === 'SELLER';
   const { addToCart } = useCart();
+  const showToast = useToast();
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedImage, setSelectedImage] = useState(0);
-  const [show3D, setShow3D] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [addingToCart, setAddingToCart] = useState(false);
   const [reviews, setReviews] = useState([]);
@@ -34,6 +33,7 @@ const ProductDetailPage = () => {
   const [hasReviewed, setHasReviewed] = useState(false);
 
   useEffect(() => {
+    if (!slug) return;
     const fetchProduct = async () => {
       setLoading(true);
       setError(null);
@@ -44,7 +44,7 @@ const ProductDetailPage = () => {
           setSelectedImage(0);
         }
       } catch (err) {
-        if (err.response?.status === 404) {
+        if (err.status === 404) {
           navigate('/not-found', { replace: true });
           return;
         }
@@ -115,9 +115,9 @@ const ProductDetailPage = () => {
     setAddingToCart(true);
     try {
       await addToCart(product._id, quantity);
-      toast.success('Added to cart!');
+      showToast('Added to cart!', 'success');
     } catch (err) {
-      toast.error(parseAPIError(err));
+      showToast(parseAPIError(err), 'error');
     } finally {
       setAddingToCart(false);
     }
@@ -136,11 +136,11 @@ const ProductDetailPage = () => {
       setReviews((prev) => [data.review, ...prev]);
       setHasReviewed(true);
       setReviewForm({ rating: 5, title: '', comment: '' });
-      toast.success('Review submitted!');
+      showToast('Review submitted!', 'success');
       const updated = await productAPI.getBySlug(slug);
       setProduct(updated.product);
     } catch (err) {
-      toast.error(parseAPIError(err));
+      showToast(parseAPIError(err), 'error');
     } finally {
       setSubmittingReview(false);
     }
@@ -174,73 +174,28 @@ const ProductDetailPage = () => {
 
       <div style={styles.mainLayout}>
         <div style={styles.gallery}>
-          <div style={styles.viewToggle}>
-            <button
-              onClick={() => setShow3D(false)}
-              style={{
-                ...styles.viewToggleBtn,
-                ...(!show3D ? styles.viewToggleBtnActive : {}),
-              }}
-            >
-              <FiStar size={14} /> Photos
-            </button>
-            <button
-              onClick={() => setShow3D(true)}
-              style={{
-                ...styles.viewToggleBtn,
-                ...(show3D ? styles.viewToggleBtnActive : {}),
-              }}
-            >
-              <FiRefreshCw size={14} /> 3D View
-            </button>
+          <div className="fade-in-up" style={styles.mainImageWrap}>
+            <img src={images[selectedImage]?.url} alt={product.name} style={styles.mainImage} />
           </div>
-          <AnimatePresence mode="wait">
-            {show3D ? (
-              <motion.div
-                key="3d"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.3 }}
-              >
-                <ProductViewer
-                  color={product.discountPercent > 0 ? '#FF6B35' : '#4A90D9'}
-                  shape={product.category === 'Electronics' ? 'box' : product.category === 'Clothing' ? 'torus' : 'sphere'}
-                />
-              </motion.div>
-            ) : (
-              <motion.div
-                key="image"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.3 }}
-              >
-                <div style={styles.mainImageWrap}>
-                  <img src={images[selectedImage]?.url} alt={product.name} style={styles.mainImage} />
-                </div>
-                {images.length > 1 && (
-                  <div style={styles.thumbnails}>
-                    {images.map((img, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => setSelectedImage(idx)}
-                        style={{
-                          ...styles.thumb,
-                          ...(idx === selectedImage ? styles.thumbActive : {}),
-                        }}
-                      >
-                        <img src={img.url} alt="" style={styles.thumbImg} />
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {images.length > 1 && (
+            <div style={styles.thumbnails}>
+              {images.map((img, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setSelectedImage(idx)}
+                  style={{
+                    ...styles.thumb,
+                    ...(idx === selectedImage ? styles.thumbActive : {}),
+                  }}
+                >
+                  <img src={img.url} alt="" style={styles.thumbImg} />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
-        <div style={styles.info}>
+        <div className="fade-in-up" style={styles.info}>
           {product.brand && <p style={styles.brand}>{product.brand}</p>}
           <h1 style={styles.name}>{product.name}</h1>
 
@@ -267,7 +222,7 @@ const ProductDetailPage = () => {
             )}
           </div>
 
-          {inStock && (
+          {inStock && !isSeller && (
             <div style={styles.quantityRow}>
               <span style={styles.quantityLabel}>Quantity:</span>
               <div style={styles.quantityControls}>
@@ -290,6 +245,7 @@ const ProductDetailPage = () => {
             </div>
           )}
 
+          {!isSeller && (
           <button
             className="btn-primary"
             onClick={handleAddToCart}
@@ -302,6 +258,7 @@ const ProductDetailPage = () => {
               <><FiShoppingCart size={20} /> {isAuthenticated ? 'Add to Cart' : 'Log in to Buy'}</>
             )}
           </button>
+          )}
 
           <div style={styles.description}>
             <h3 style={styles.descTitle}>Description</h3>
@@ -320,7 +277,7 @@ const ProductDetailPage = () => {
         <h2 style={styles.reviewsTitle}>Customer Reviews</h2>
 
         {reviews.length > 0 && (
-          <div style={styles.ratingSummary}>
+          <div className="fade-in-up" style={styles.ratingSummary}>
             <div style={styles.ratingBig}>
               <span style={styles.ratingBigValue}>{product.ratings}</span>
               <StarRating rating={product.ratings} size={20} />
@@ -351,7 +308,7 @@ const ProductDetailPage = () => {
         )}
 
         {isAuthenticated && !hasReviewed && (
-          <div style={styles.reviewFormSection}>
+          <div className="fade-in-up" style={styles.reviewFormSection}>
             <h3 style={styles.descTitle}>Write a Review</h3>
             <form onSubmit={handleReviewSubmit} style={styles.reviewForm}>
               <div style={styles.reviewRatingPicker}>
@@ -445,31 +402,6 @@ const styles = {
   gallery: {
     flex: '1 1 50%',
     minWidth: '300px',
-  },
-  viewToggle: {
-    display: 'flex',
-    gap: 'var(--space-2)',
-    marginBottom: 'var(--space-3)',
-  },
-  viewToggleBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 'var(--space-1)',
-    padding: 'var(--space-1) var(--space-4)',
-    borderRadius: 'var(--radius-full)',
-    fontSize: 'var(--text-xs)',
-    fontWeight: 600,
-    fontFamily: 'var(--font-mono)',
-    background: 'var(--glass-bg)',
-    border: '1px solid var(--color-border)',
-    color: 'var(--color-text-secondary)',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-  },
-  viewToggleBtnActive: {
-    background: 'rgba(255, 107, 53, 0.12)',
-    borderColor: 'rgba(255, 107, 53, 0.3)',
-    color: 'var(--color-primary)',
   },
   mainImageWrap: {
     width: '100%',

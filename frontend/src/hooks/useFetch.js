@@ -34,7 +34,7 @@ const useFetch = (fetchFn, deps = []) => {
     } catch (err) {
       if (err.name === 'AbortError' || err.code === 'ERR_CANCELED') return;
       if (mountedRef.current) {
-        setError(err.response?.data?.message || err.message || 'Something went wrong');
+        setError(err.data?.message || err.message || 'Something went wrong');
       }
     } finally {
       if (mountedRef.current) {

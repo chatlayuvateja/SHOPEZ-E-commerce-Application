@@ -1,5 +1,5 @@
 import React from 'react';
-import { FiStar } from 'react-icons/fi';
+import { FiStar } from '../../utils/Icons';
 
 const StarRating = ({ rating = 0, size = 16, showValue = false }) => {
   const fullStars = Math.floor(rating);

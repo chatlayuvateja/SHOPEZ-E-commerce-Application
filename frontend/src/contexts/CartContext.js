@@ -59,10 +59,10 @@ export const CartProvider = ({ children }) => {
       const data = await cartAPI.getCart();
       dispatch({ type: 'FETCH_SUCCESS', payload: data });
     } catch (err) {
-      if (err.response?.status === 404) {
+      if (err.status === 404) {
         dispatch({ type: 'FETCH_SUCCESS', payload: { items: [] } });
       } else {
-        dispatch({ type: 'FETCH_ERROR', payload: err.response?.data?.message || 'Failed to load cart' });
+        dispatch({ type: 'FETCH_ERROR', payload: err.data?.message || 'Failed to load cart' });
       }
     }
   }, [isAuthenticated]);
@@ -84,7 +84,7 @@ export const CartProvider = ({ children }) => {
           dispatch({ type: 'FETCH_SUCCESS', payload: result });
         } catch (err) {
           dispatch({ type: 'SYNC_END' });
-          dispatch({ type: 'SET_ERROR', payload: err.response?.data?.message || 'Failed to update cart' });
+          dispatch({ type: 'SET_ERROR', payload: err.data?.message || 'Failed to update cart' });
           fetchCart();
         }
       }, 300);

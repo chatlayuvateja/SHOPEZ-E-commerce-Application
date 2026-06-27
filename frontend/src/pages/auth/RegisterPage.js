@@ -1,16 +1,15 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { FiEye, FiEyeOff, FiStar } from 'react-icons/fi';
-import { motion } from 'framer-motion';
+import { Link, useNavigate } from '../../router/Router';
+import { FiEye, FiEyeOff, FiStar } from '../../utils/Icons';
 import useAuth from '../../hooks/useAuth';
-import ParticlesBackground from '../../components/3d/ParticlesBackground';
-import toast from 'react-hot-toast';
+import { useToast } from '../../components/common/Toast';
 import parseAPIError from '../../utils/errorParser';
 
 const RegisterPage = () => {
   const { register } = useAuth();
   const navigate = useNavigate();
 
+  const [accountType, setAccountType] = useState(null);
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -19,10 +18,9 @@ const RegisterPage = () => {
     phone: '',
   });
   const [showPassword, setShowPassword] = useState(false);
-  const [roleSelection, setRoleSelection] = useState(false);
-  const [role, setRole] = useState('USER');
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const showToast = useToast();
 
   const validate = () => {
     const errs = {};
@@ -48,34 +46,71 @@ const RegisterPage = () => {
     e.preventDefault();
     if (!validate()) return;
     setLoading(true);
-      try {
-        await register(form.name, form.email, form.password, role);
-        toast.success('Registration successful!');
-      navigate('/');
+    try {
+      await register(form.name, form.email, form.password, accountType === 'seller' ? 'SELLER' : 'USER');
+      showToast('Registration successful!', 'success');
+      navigate(accountType === 'seller' ? '/seller/dashboard' : '/');
     } catch (err) {
-      toast.error(parseAPIError(err));
+      showToast(parseAPIError(err), 'error');
     } finally {
       setLoading(false);
     }
   };
 
+  if (!accountType) {
+    return (
+      <div style={styles.wrapper}>
+        <div style={styles.panel}>
+          <div className="fade-in-up" style={styles.formContainer}>
+            <div style={styles.header}>
+              <Link to="/" style={styles.brand}>
+                <span style={styles.logoIcon}>✦</span>
+                Shop<span style={{ color: 'var(--color-primary)' }}>EZ</span>
+              </Link>
+              <h1 style={styles.title}>Join ShopEZ</h1>
+              <p style={styles.subtitle}>Choose your account type to get started</p>
+            </div>
+            <div style={styles.accountOptions}>
+              <button onClick={() => setAccountType('customer')} style={styles.accountCard}>
+                <span style={styles.accountIcon}>🛒</span>
+                <span style={styles.accountName}>Customer Account</span>
+                <span style={styles.accountDesc}>Browse products, add to cart, place orders, and track deliveries.</span>
+              </button>
+              <button onClick={() => setAccountType('seller')} style={styles.accountCard}>
+                <span style={styles.accountIcon}>🏪</span>
+                <span style={styles.accountName}>Seller Account</span>
+                <span style={styles.accountDesc}>List products, manage inventory, track sales and earnings.</span>
+              </button>
+            </div>
+            <div style={styles.footer}>
+              <p style={styles.footerText}>
+                Already have an account? <Link to="/login" style={styles.link}>Log In</Link>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={styles.wrapper}>
-      <ParticlesBackground count={50} color="255,107,53" speed={0.2} />
       <div style={styles.panel}>
-        <motion.div
-          style={styles.formContainer}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
+        <div className="fade-in-up" style={styles.formContainer}>
           <div style={styles.header}>
             <Link to="/" style={styles.brand}>
               <span style={styles.logoIcon}>✦</span>
               Shop<span style={{ color: 'var(--color-primary)' }}>EZ</span>
             </Link>
-            <h1 style={styles.title}>Create Account</h1>
-            <p style={styles.subtitle}>Join ShopEZ and start shopping</p>
+            <h1 style={styles.title}>
+              {accountType === 'seller' ? 'Seller Registration' : 'Customer Registration'}
+            </h1>
+            <p style={styles.subtitle}>
+              {accountType === 'seller'
+                ? 'Create your seller account to start selling on ShopEZ'
+                : 'Create your customer account to start shopping'}
+            </p>
+            <button onClick={() => setAccountType(null)} style={styles.backBtn}>← Change account type</button>
           </div>
           <form onSubmit={handleSubmit} style={styles.form}>
             <div style={styles.field}>
@@ -145,44 +180,13 @@ const RegisterPage = () => {
               />
               {errors.phone && <span style={styles.error}>{errors.phone}</span>}
             </div>
-            {!roleSelection ? (
-              <button type="button" onClick={() => setRoleSelection(true)} style={styles.roleBtn}>
-                Register as Customer
-              </button>
-            ) : (
-              <div style={styles.roleSelection}>
-                <p style={styles.roleLabel}>I want to register as:</p>
-                <div style={styles.roleOptions}>
-                  <button
-                    type="button"
-                    onClick={() => setRole('USER')}
-                    style={{ ...styles.roleOption, ...(role === 'USER' ? styles.roleOptionActive : {}) }}
-                  >
-                    <span style={styles.roleIcon}>🛒</span>
-                    <span style={styles.roleName}>Customer</span>
-                    <span style={styles.roleDesc}>Browse & shop products</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRole('SELLER')}
-                    style={{ ...styles.roleOption, ...(role === 'SELLER' ? styles.roleOptionActive : {}) }}
-                  >
-                    <span style={styles.roleIcon}>🏪</span>
-                    <span style={styles.roleName}>Seller</span>
-                    <span style={styles.roleDesc}>Sell your products</span>
-                  </button>
-                </div>
-              </div>
-            )}
-            <motion.button
+            <button
               type="submit"
               disabled={loading}
               style={styles.submitBtn}
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
             >
               {loading ? <span className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }}></span> : 'Create Account'}
-            </motion.button>
+            </button>
           </form>
           <div style={styles.footer}>
             <p style={styles.footerText}>
@@ -192,7 +196,7 @@ const RegisterPage = () => {
               <FiStar size={12} /> Back to Home
             </Link>
           </div>
-        </motion.div>
+        </div>
       </div>
     </div>
   );
@@ -210,7 +214,7 @@ const styles = {
   },
   panel: {
     width: '100%',
-    maxWidth: '480px',
+    maxWidth: '520px',
     position: 'relative',
     zIndex: 1,
   },
@@ -251,6 +255,49 @@ const styles = {
   subtitle: {
     fontSize: 'var(--text-sm)',
     color: 'var(--color-text-muted)',
+    marginBottom: 'var(--space-2)',
+  },
+  backBtn: {
+    background: 'none',
+    border: 'none',
+    color: 'var(--color-primary)',
+    cursor: 'pointer',
+    fontSize: 'var(--text-xs)',
+    fontFamily: 'inherit',
+    padding: 0,
+  },
+  accountOptions: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--space-4)',
+  },
+  accountCard: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 'var(--space-2)',
+    padding: 'var(--space-6)',
+    background: 'var(--glass-bg)',
+    border: '1px solid var(--glass-border)',
+    borderRadius: 'var(--radius-lg)',
+    cursor: 'pointer',
+    transition: 'all 0.3s',
+    fontFamily: 'inherit',
+    textAlign: 'left',
+    width: '100%',
+  },
+  accountIcon: {
+    fontSize: 'var(--text-3xl)',
+  },
+  accountName: {
+    fontSize: 'var(--text-lg)',
+    fontWeight: 700,
+    color: 'var(--color-text-primary)',
+  },
+  accountDesc: {
+    fontSize: 'var(--text-sm)',
+    color: 'var(--color-text-muted)',
+    lineHeight: 1.5,
   },
   form: {
     display: 'flex',
@@ -306,65 +353,6 @@ const styles = {
     fontSize: 'var(--text-xs)',
     color: 'var(--color-error)',
   },
-  roleBtn: {
-    width: '100%',
-    padding: 'var(--space-3)',
-    background: 'var(--glass-bg)',
-    border: '1px solid var(--glass-border)',
-    borderRadius: 'var(--radius-full)',
-    color: 'var(--color-text-primary)',
-    fontWeight: 600,
-    fontSize: 'var(--text-sm)',
-    cursor: 'pointer',
-    transition: 'all 0.3s',
-    fontFamily: 'inherit',
-  },
-  roleSelection: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 'var(--space-3)',
-  },
-  roleLabel: {
-    fontSize: 'var(--text-sm)',
-    fontWeight: 600,
-    color: 'var(--color-text-primary)',
-    textAlign: 'center',
-  },
-  roleOptions: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: 'var(--space-3)',
-  },
-  roleOption: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: 'var(--space-1)',
-    padding: 'var(--space-4) var(--space-3)',
-    background: 'var(--glass-bg)',
-    border: '1px solid var(--glass-border)',
-    borderRadius: 'var(--radius-lg)',
-    cursor: 'pointer',
-    transition: 'all 0.3s',
-    fontFamily: 'inherit',
-  },
-  roleOptionActive: {
-    borderColor: 'var(--color-primary)',
-    background: 'rgba(255, 107, 53, 0.08)',
-    boxShadow: '0 0 20px rgba(255, 107, 53, 0.1)',
-  },
-  roleIcon: {
-    fontSize: 'var(--text-2xl)',
-  },
-  roleName: {
-    fontSize: 'var(--text-sm)',
-    fontWeight: 600,
-    color: 'var(--color-text-primary)',
-  },
-  roleDesc: {
-    fontSize: 'var(--text-xs)',
-    color: 'var(--color-text-muted)',
-  },
   submitBtn: {
     width: '100%',
     padding: 'var(--space-3)',
@@ -384,6 +372,7 @@ const styles = {
     fontFamily: 'inherit',
     letterSpacing: '0.03em',
     textTransform: 'uppercase',
+    marginTop: 'var(--space-2)',
   },
   footer: {
     textAlign: 'center',

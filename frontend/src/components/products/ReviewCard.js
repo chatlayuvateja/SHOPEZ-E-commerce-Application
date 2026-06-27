@@ -1,5 +1,5 @@
 import React from 'react';
-import { FiStar } from 'react-icons/fi';
+import { FiStar } from '../../utils/Icons';
 
 const ReviewCard = ({ review }) => {
   const { user, rating, title, comment, createdAt, isVerifiedPurchase } = review;

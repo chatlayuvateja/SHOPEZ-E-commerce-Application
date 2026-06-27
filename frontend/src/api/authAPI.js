@@ -1,12 +1,11 @@
-import axiosInstance from './axiosInstance';
+import api from './fetchInstance';
 
-const authAPI = {
-  register: (data) => axiosInstance.post('/auth/register', data).then((res) => res.data),
-  login: (data) => axiosInstance.post('/auth/login', data).then((res) => res.data),
-  logout: () => axiosInstance.post('/auth/logout').then((res) => res.data),
-  getMe: () => axiosInstance.get('/auth/me').then((res) => res.data),
-  updatePassword: (data) => axiosInstance.patch('/auth/update-password', data).then((res) => res.data),
-  refreshToken: () => axiosInstance.post('/auth/refresh-token').then((res) => res.data),
-};
+export const register = (data) => api.post('/auth/register', data);
+export const login = (data) => api.post('/auth/login', data);
+export const logout = () => api.post('/auth/logout');
+export const getMe = () => api.get('/auth/me');
+export const updatePassword = (data) => api.patch('/auth/update-password', data);
+export const refreshToken = () => api.post('/auth/refresh-token');
 
+const authAPI = { register, login, logout, getMe, updatePassword, refreshToken };
 export default authAPI;

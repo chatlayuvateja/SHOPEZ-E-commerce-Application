@@ -1,113 +1,126 @@
-const mongoose = require('mongoose');
+const { ObjectId } = require('mongodb');
+const { getDB } = require('../config/db');
 
-const productSchema = new mongoose.Schema({
-  seller: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: [true, 'Product must belong to a seller'],
-  },
-  name: {
-    type: String,
-    required: [true, 'Product name is required'],
-    trim: true,
-    maxlength: [200, 'Product name cannot exceed 200 characters'],
-  },
-  slug: {
-    type: String,
-    unique: true,
-  },
-  description: {
-    type: String,
-    required: [true, 'Product description is required'],
-    maxlength: [2000, 'Description cannot exceed 2000 characters'],
-  },
-  category: {
-    type: String,
-    required: [true, 'Product category is required'],
-    enum: {
-      values: ['Electronics', 'Clothing', 'Home & Kitchen', 'Books', 'Sports', 'Beauty', 'Toys', 'Automotive', 'Health', 'Groceries', 'Jewelry', 'Music', 'Other'],
-      message: '{VALUE} is not a valid category',
-    },
-  },
-  brand: {
-    type: String,
-    default: '',
-  },
-  price: {
-    type: Number,
-    required: [true, 'Product price is required'],
-    min: [0, 'Price cannot be negative'],
-  },
-  discountPercent: {
-    type: Number,
-    default: 0,
-    min: [0, 'Discount cannot be negative'],
-    max: [90, 'Discount cannot exceed 90%'],
-  },
-  stock: {
-    type: Number,
-    required: [true, 'Stock count is required'],
-    min: [0, 'Stock cannot be negative'],
-    default: 0,
-  },
-  images: {
-    type: [
-      {
-        url: { type: String },
-        public_id: { type: String },
-      },
-    ],
-    validate: {
-      validator: function (value) {
-        return value.length > 0;
-      },
-      message: 'At least one product image is required',
-    },
-  },
-  ratings: {
-    type: Number,
-    default: 0,
-    min: [0, 'Ratings cannot be negative'],
-    max: [5, 'Ratings cannot exceed 5'],
-  },
-  numReviews: {
-    type: Number,
-    default: 0,
-  },
-  isFeatured: {
-    type: Boolean,
-    default: false,
-  },
-  isActive: {
-    type: Boolean,
-    default: true,
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-}, {
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true },
-});
+const collectionName = 'products';
 
-productSchema.virtual('finalPrice').get(function () {
-  const discount = this.price * (this.discountPercent / 100);
-  return Math.round((this.price - discount) * 100) / 100;
-});
+const VALID_CATEGORIES = ['Electronics', 'Clothing', 'Home & Kitchen', 'Books', 'Sports', 'Beauty', 'Toys', 'Automotive', 'Health', 'Groceries', 'Jewelry', 'Music', 'Other'];
 
-productSchema.pre('save', function () {
-  this.slug = this.name
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
-});
+const Product = {
+  collectionName,
 
-productSchema.index({ seller: 1 });
-productSchema.index({ category: 1 });
+  async initCollection(db) {
+    const collections = await db.listCollections({ name: collectionName }).toArray();
+    if (collections.length === 0) {
+      await db.createCollection(collectionName);
+      const col = db.collection(collectionName);
+      await col.createIndex({ seller: 1 });
+      await col.createIndex({ category: 1 });
+      await col.createIndex({ ratings: -1 });
+      await col.createIndex({ slug: 1 }, { unique: true });
+      await col.createIndex({ isActive: 1 });
+    }
+  },
 
-productSchema.index({ ratings: -1 });
+  generateSlug(name) {
+    return name
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '') + '-' + Date.now();
+  },
 
-module.exports = mongoose.model('Product', productSchema);
+  calculateFinalPrice(price, discountPercent) {
+    const discount = price * ((discountPercent || 0) / 100);
+    return Math.round((price - discount) * 100) / 100;
+  },
+
+  async findById(id) {
+    const db = getDB();
+    return db.collection(collectionName).findOne({ _id: new ObjectId(id) });
+  },
+
+  async findOne(filter) {
+    const db = getDB();
+    return db.collection(collectionName).findOne(filter);
+  },
+
+  async find(filter, options = {}) {
+    const db = getDB();
+    let cursor = db.collection(collectionName).find(filter);
+
+    if (options.sort) cursor = cursor.sort(options.sort);
+    if (options.skip) cursor = cursor.skip(options.skip);
+    if (options.limit) cursor = cursor.limit(options.limit);
+
+    return cursor.toArray();
+  },
+
+  async countDocuments(filter = {}) {
+    const db = getDB();
+    return db.collection(collectionName).countDocuments(filter);
+  },
+
+  async create(productData) {
+    const db = getDB();
+    const slug = this.generateSlug(productData.name);
+    const product = {
+      seller: productData.seller ? new ObjectId(productData.seller) : null,
+      name: productData.name,
+      slug,
+      description: productData.description,
+      category: productData.category,
+      brand: productData.brand || '',
+      price: productData.price,
+      discountPercent: productData.discountPercent || 0,
+      stock: productData.stock || 0,
+      images: productData.images || [],
+      ratings: 0,
+      numReviews: 0,
+      isFeatured: productData.isFeatured || false,
+      isActive: true,
+      createdAt: new Date(),
+    };
+    const result = await db.collection(collectionName).insertOne(product);
+    return { ...product, _id: result.insertedId };
+  },
+
+  async findByIdAndUpdate(id, updateData) {
+    const db = getDB();
+    const update = { $set: {} };
+    Object.keys(updateData).forEach((key) => {
+      if (key !== '_id') {
+        if (key === 'seller') {
+          update.$set[key] = new ObjectId(updateData[key]);
+        } else {
+          update.$set[key] = updateData[key];
+        }
+      }
+    });
+    const result = await db.collection(collectionName).findOneAndUpdate(
+      { _id: new ObjectId(id) },
+      update,
+      { returnDocument: 'after' }
+    );
+    return result;
+  },
+
+  async findOneAndUpdate(filter, update) {
+    const db = getDB();
+    return db.collection(collectionName).findOneAndUpdate(filter, update, { returnDocument: 'after' });
+  },
+
+  async aggregate(pipeline) {
+    const db = getDB();
+    return db.collection(collectionName).aggregate(pipeline).toArray();
+  },
+
+  async deleteMany(filter) {
+    const db = getDB();
+    return db.collection(collectionName).deleteMany(filter);
+  },
+
+  VALID_CATEGORIES,
+};
+
+module.exports = Product;

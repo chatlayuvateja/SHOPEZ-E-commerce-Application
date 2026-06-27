@@ -1,13 +1,12 @@
-import axiosInstance from './axiosInstance';
+import api from './fetchInstance';
 
-const productAPI = {
-  getAll: (params) => axiosInstance.get('/products', { params }).then((res) => res.data),
-  getBySlug: (slug) => axiosInstance.get(`/products/${slug}`).then((res) => res.data),
-  getFeatured: () => axiosInstance.get('/products/featured').then((res) => res.data),
-  getCategories: () => axiosInstance.get('/products/categories').then((res) => res.data),
-  create: (data) => axiosInstance.post('/products', data).then((res) => res.data),
-  update: (id, data) => axiosInstance.put(`/products/${id}`, data).then((res) => res.data),
-  delete: (id) => axiosInstance.delete(`/products/${id}`).then((res) => res.data),
-};
+export const getAll = (params) => api.get('/products', { params });
+export const getBySlug = (slug) => api.get(`/products/${slug}`);
+export const getFeatured = () => api.get('/products/featured');
+export const getCategories = () => api.get('/products/categories');
+export const create = (data) => api.post('/products', data);
+export const update = (id, data) => api.put(`/products/${id}`, data);
+export const deleteProduct = (id) => api.delete(`/products/${id}`);
 
+const productAPI = { getAll, getBySlug, getFeatured, getCategories, create, update, delete: deleteProduct };
 export default productAPI;

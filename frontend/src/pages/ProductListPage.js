@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { FiSearch, FiSliders, FiX } from 'react-icons/fi';
+import { useSearchParams } from '../router/Router';
+import { FiSearch, FiSliders, FiX } from '../utils/Icons';
 import productAPI from '../api/productAPI';
 import ProductCard from '../components/products/ProductCard';
 import ProductCardSkeleton from '../components/products/ProductCardSkeleton';

@@ -1,14 +1,18 @@
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+const { loadEnv } = require('./utils/env');
+loadEnv(path.resolve(__dirname, '.env'));
 
-const mongoose = require('mongoose');
-const User = require('./models/User');
-const Product = require('./models/Product');
-const Review = require('./models/Review');
-const Cart = require('./models/Cart');
+const { MongoClient } = require('mongodb');
+const { ObjectId } = require('mongodb');
+const { connectDB, getDB } = require('./config/db');
 const Order = require('./models/Order');
+const Cart = require('./models/Cart');
+const Review = require('./models/Review');
+const Product = require('./models/Product');
+const User = require('./models/User');
 
-const connectDB = require('./config/db');
+
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/shopez';
 
 const users = [
   {
@@ -310,8 +314,8 @@ const orderSeeds = [
 
 async function seed() {
   try {
-    await connectDB();
-    console.log('MongoDB Connected:', mongoose.connection.host);
+    const db = await connectDB();
+    console.log('MongoDB Connected:', MONGO_URI);
 
     const arg = process.argv[2];
     if (arg === '--destroy') {
@@ -334,7 +338,7 @@ async function seed() {
       console.log('Data destroyed.');
 
       console.log('Creating users...');
-      const createdUsers = await User.create(users);
+      const createdUsers = await Promise.all(users.map(u => User.create(u)));
       console.log(`  ${createdUsers.length} users created`);
 
       const userMap = {};
@@ -353,7 +357,7 @@ async function seed() {
         isFeatured: t.isFeatured,
         images: t.images,
       }));
-      const createdProducts = await Product.create(productDocs);
+      const createdProducts = await Promise.all(productDocs.map(p => Product.create(p)));
       console.log(`  ${createdProducts.length} products created`);
 
       const productMap = {};
@@ -368,7 +372,7 @@ async function seed() {
         comment: r.comment,
         isVerifiedPurchase: true,
       }));
-      const createdReviews = await Review.create(reviewDocs);
+      const createdReviews = await Promise.all(reviewDocs.map(r => Review.create(r)));
       console.log(`  ${createdReviews.length} reviews created`);
 
       console.log('Creating orders...');
@@ -407,7 +411,7 @@ async function seed() {
           createdAt: o.createdAt,
         };
       });
-      const createdOrders = await Order.create(orderDocs);
+      const createdOrders = await Promise.all(orderDocs.map(o => Order.create(o)));
       console.log(`  ${createdOrders.length} orders created`);
 
       console.log('Creating carts...');

@@ -1,22 +1,42 @@
 const User = require('../models/User');
 const Cart = require('../models/Cart');
 const AppError = require('../utils/AppError');
-const { sendTokenResponse } = require('../utils/tokenUtils');
+const { sendTokenResponse } = require('../utils/jwt');
 
 const registerUser = async (req, res, next) => {
   try {
     const { name, email, password, role } = req.body;
+    const db = req.db;
 
-    const existingUser = await User.findOne({ email });
+    const validRole = role === 'SELLER' ? 'SELLER' : 'USER';
+
+    const existingUser = await db.collection('users').findOne({ email: email.toLowerCase() });
     if (existingUser) {
       return next(new AppError('A user with this email already exists.', 400));
     }
 
-    const user = await User.create({ name, email, password, role });
+    const hashedPw = await User.hashPassword(password);
+    const userData = {
+      name,
+      email: email.toLowerCase(),
+      password: hashedPw,
+      role: validRole,
+      avatar: '',
+      phone: '',
+      address: {},
+      isActive: true,
+      refreshToken: '',
+      createdAt: new Date(),
+    };
 
-    await Cart.create({ user: user._id, items: [] });
+    const result = await db.collection('users').insertOne(userData);
+    const user = { ...userData, _id: result.insertedId };
 
-    await sendTokenResponse(user, 201, res);
+    if (validRole === 'USER') {
+      await db.collection('carts').insertOne({ user: user._id, items: [], updatedAt: new Date() });
+    }
+
+    await sendTokenResponse(user, 201, res, db);
   } catch (error) {
     next(error);
   }
@@ -25,10 +45,11 @@ const registerUser = async (req, res, next) => {
 const loginUser = async (req, res, next) => {
   try {
     const { email, password } = req.body;
+    const db = req.db;
 
-    const user = await User.findOne({ email }).select('+password');
+    const user = await db.collection('users').findOne({ email: email.toLowerCase() });
 
-    if (!user || !(await user.correctPassword(password, user.password))) {
+    if (!user || !(await User.comparePassword(password, user.password))) {
       return next(new AppError('Incorrect email or password', 401));
     }
 
@@ -36,7 +57,7 @@ const loginUser = async (req, res, next) => {
       return next(new AppError('Your account has been deactivated.', 403));
     }
 
-    await sendTokenResponse(user, 200, res);
+    await sendTokenResponse(user, 200, res, db);
   } catch (error) {
     next(error);
   }
@@ -44,16 +65,16 @@ const loginUser = async (req, res, next) => {
 
 const logoutUser = async (req, res, next) => {
   try {
-    res.cookie('accessToken', 'none', {
-      httpOnly: true,
-      expires: new Date(Date.now()),
-    });
-    res.cookie('refreshToken', 'none', {
-      httpOnly: true,
-      expires: new Date(Date.now()),
-    });
+    const db = req.db;
+    res.setHeader('Set-Cookie', [
+      'accessToken=none; HttpOnly; Path=/; Max-Age=0',
+      'refreshToken=none; HttpOnly; Path=/; Max-Age=0',
+    ]);
 
-    await User.findByIdAndUpdate(req.user._id, { refreshToken: '' });
+    await db.collection('users').updateOne(
+      { _id: req.user._id },
+      { $set: { refreshToken: '' } }
+    );
 
     res.status(200).json({
       status: 'success',
@@ -66,7 +87,11 @@ const logoutUser = async (req, res, next) => {
 
 const getMe = async (req, res, next) => {
   try {
-    const user = await User.findById(req.user._id);
+    const db = req.db;
+    const user = await db.collection('users').findOne(
+      { _id: req.user._id },
+      { projection: { password: 0, refreshToken: 0 } }
+    );
 
     res.status(200).json({
       status: 'success',
@@ -80,17 +105,22 @@ const getMe = async (req, res, next) => {
 const updatePassword = async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body;
+    const db = req.db;
 
-    const user = await User.findById(req.user._id).select('+password');
+    const user = await db.collection('users').findOne({ _id: req.user._id });
 
-    if (!(await user.correctPassword(currentPassword, user.password))) {
+    if (!(await User.comparePassword(currentPassword, user.password))) {
       return next(new AppError('Current password is incorrect.', 401));
     }
 
-    user.password = newPassword;
-    await user.save();
+    const hashedPw = await User.hashPassword(newPassword);
+    await db.collection('users').updateOne(
+      { _id: req.user._id },
+      { $set: { password: hashedPw, passwordChangedAt: new Date() } }
+    );
 
-    await sendTokenResponse(user, 200, res);
+    const updatedUser = await db.collection('users').findOne({ _id: req.user._id });
+    await sendTokenResponse(updatedUser, 200, res, db);
   } catch (error) {
     next(error);
   }

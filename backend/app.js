@@ -1,13 +1,10 @@
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+const { loadEnv } = require('./utils/env');
+loadEnv(path.resolve(__dirname, '.env'));
 
-const compression = require('compression');
 const express = require('express');
-const helmet = require('helmet');
-const morgan = require('morgan');
-const cors = require('cors');
-const cookieParser = require('cookie-parser');
-const rateLimit = require('express-rate-limit');
+const { corsMiddleware } = require('./utils/cors');
+const { parseCookies } = require('./utils/cookies');
 
 const notFound = require('./middleware/notFound');
 const errorMiddleware = require('./middleware/errorMiddleware');
@@ -23,35 +20,23 @@ const adminRoutes = require('./routes/admin.routes');
 
 const app = express();
 
-app.use(compression());
-app.use(helmet());
-
 app.set('etag', 'strong');
 
-if (process.env.NODE_ENV === 'development') {
-  app.use(morgan('dev'));
-}
-
-app.use(cors({
+app.use(corsMiddleware({
   origin: process.env.CLIENT_URL,
   credentials: true,
 }));
 
-app.use(express.json({ limit: '10kb' }));
+app.use(parseCookies);
+
+app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
-app.use(cookieParser());
 
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  validate: { trustProxy: false },
-  message: {
-    status: 'fail',
-    message: 'Too many requests from this IP, please try again later.',
-  },
+// Make db accessible to routes
+app.use((req, res, next) => {
+  req.db = req.app.locals.db;
+  next();
 });
-
-app.use('/api', limiter);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);

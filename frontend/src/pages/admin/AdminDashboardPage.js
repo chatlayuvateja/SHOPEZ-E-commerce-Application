@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiUsers, FiUserCheck, FiPackage, FiDollarSign, FiTrash2, FiToggleLeft, FiSearch, FiExternalLink } from 'react-icons/fi';
+import { FiUsers, FiUserCheck, FiPackage, FiDollarSign, FiTrash2, FiToggleLeft, FiSearch, FiExternalLink } from '../../utils/Icons';
 import adminAPI from '../../api/adminAPI';
 import productAPI from '../../api/productAPI';
 import Pagination from '../../components/common/Pagination';
-import RevenueChart from '../../components/charts/RevenueChart';
-import OrdersDonutChart from '../../components/charts/OrdersDonutChart';
+import { RevenueTable, OrdersDonutTable } from '../../components/charts/SimpleCharts';
 import OrderStatusBadge from '../../components/orders/OrderStatusBadge';
-import toast from 'react-hot-toast';
-import { Link } from 'react-router-dom';
+import { useToast } from '../../components/common/Toast';
+import { Link } from '../../router/Router';
 import { formatINR } from '../../utils/formatCurrency';
 import { formatDate } from '../../utils/formatDate';
 import parseAPIError from '../../utils/errorParser';
@@ -19,6 +18,7 @@ const roleColors = {
 };
 
 const AdminDashboardPage = () => {
+  const showToast = useToast();
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -73,9 +73,9 @@ const AdminDashboardPage = () => {
     try {
       const data = await adminAPI.updateUserStatus(userId);
       setUsers((prev) => prev.map((u) => (u._id === userId ? data.user : u)));
-      toast.success('User status updated');
+      showToast('User status updated', 'success');
     } catch (err) {
-      toast.error(parseAPIError(err));
+      showToast(parseAPIError(err), 'error');
     } finally {
       setActionLoading(null);
     }
@@ -86,9 +86,9 @@ const AdminDashboardPage = () => {
     try {
       const data = await adminAPI.updateUserRole(userId, newRole);
       setUsers((prev) => prev.map((u) => (u._id === userId ? data.user : u)));
-      toast.success(`Role changed to ${newRole}`);
+      showToast(`Role changed to ${newRole}`, 'success');
     } catch (err) {
-      toast.error(parseAPIError(err));
+      showToast(parseAPIError(err), 'error');
     } finally {
       setActionLoading(null);
     }
@@ -102,7 +102,7 @@ const AdminDashboardPage = () => {
 
   const handleDeleteConfirm = async () => {
     if (deleteConfirmEmail !== deleteTarget.email) {
-      toast.error('Email does not match. Please type the exact email to confirm.');
+      showToast('Email does not match. Please type the exact email to confirm.', 'error');
       return;
     }
     setActionLoading(deleteTarget._id);
@@ -111,9 +111,9 @@ const AdminDashboardPage = () => {
       setUsers((prev) => prev.filter((u) => u._id !== deleteTarget._id));
       setShowDeleteModal(false);
       setDeleteTarget(null);
-      toast.success('User and all associated data permanently deleted');
+      showToast('User and all associated data permanently deleted', 'success');
     } catch (err) {
-      toast.error(parseAPIError(err));
+      showToast(parseAPIError(err), 'error');
     } finally {
       setActionLoading(null);
     }
@@ -122,10 +122,10 @@ const AdminDashboardPage = () => {
   const handleToggleProductActive = async (product) => {
     try {
       await productAPI.update(product._id, { isActive: !product.isActive });
-      toast.success(`Product ${product.isActive ? 'deactivated' : 'activated'}`);
+      showToast(`Product ${product.isActive ? 'deactivated' : 'activated'}`, 'success');
       setAllProducts((prev) => prev.map((p) => p._id === product._id ? { ...p, isActive: !p.isActive } : p));
     } catch (err) {
-      toast.error(parseAPIError(err));
+      showToast(parseAPIError(err), 'error');
     }
   };
 
@@ -193,11 +193,11 @@ const AdminDashboardPage = () => {
           <div style={styles.chartsRow}>
             <div style={styles.chartCard}>
               <h3 style={styles.chartTitle}>Revenue Overview</h3>
-              <RevenueChart data={stats?.monthlyRevenue || []} />
+              <RevenueTable data={stats?.monthlyRevenue || []} title="Revenue" />
             </div>
             <div style={styles.chartCard}>
               <h3 style={styles.chartTitle}>Orders by Status</h3>
-              <OrdersDonutChart data={stats?.ordersByStatus || []} />
+              <OrdersDonutTable data={stats?.ordersByStatus || []} title="Orders by Status" />
             </div>
           </div>
 
